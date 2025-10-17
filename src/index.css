@@ -1,0 +1,52 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+
+:root {
+  font-family: Inter, Poppins, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Theme tokens */
+  --color-white: #FFFFFF;
+  --color-blue: #0055FF;
+  --color-gray-50: #F4F6FA;
+  --shadow-soft: 0 6px 24px rgba(0,0,0,0.06);
+  --shadow-hover: 0 12px 32px rgba(0,0,0,0.12);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[var(--color-blue)] hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-xl shadow-sm hover:shadow-md transition-all hover:-translate-y-[1px] active:scale-95;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-[1px] active:scale-95;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all;
+  }
+  
+  .card {
+    @apply bg-white border border-gray-200 rounded-2xl shadow-sm p-6 transition-shadow;
+  }
+
+  .card-interactive {
+    @apply bg-white border border-gray-200 rounded-2xl shadow-sm p-6 transition-transform transition-shadow hover:-translate-y-[2px] hover:border-blue-500 hover:shadow-md;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full;
+  }
+  .badge-default { @apply bg-gray-100 text-gray-700; }
+  .badge-success { @apply bg-[#d1fae5] text-[#065f46]; }
+  .badge-warning { @apply bg-[#fef3c7] text-[#92400e]; }
+  .badge-danger { @apply bg-[#fee2e2] text-[#7f1d1d]; }
+  .badge-info { @apply bg-blue-100 text-blue-800; }
+  .badge-neutral { @apply bg-gray-100 text-gray-800; }
+}
