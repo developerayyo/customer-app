@@ -1,0 +1,46 @@
+# Netlify configuration for Customer App
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA routing: let client-side router handle all paths
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Cache hashed static assets aggressively
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Service Worker: allow scope at root and avoid caching the file itself
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"
+
+# PWA manifest: modest caching
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "max-age=3600"
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=*, camera=(), microphone=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+# Production environment variables (prefer setting in Netlify UI)
+# [context.production.environment]
+#   VITE_API_BASE_URL = "https://erp.example.com/api"
+#   VITE_API_KEY = "your_key"
+#   VITE_API_SECRET = "your_secret"
