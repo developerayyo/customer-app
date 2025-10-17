@@ -226,7 +226,7 @@ export const getPriceLists = async () => {
   }
 };
 
-export const getItemPrices = async (priceList?: string, itemCode?: string, warehouse?: string, search?: string, limit?: number, page?: number) => {
+export const getItemPrices = async (priceList?: string, itemCode?: string, search?: string, limit?: number, page?: number) => {
   try {
     let url = '/resource/Item Price';
     const params = new URLSearchParams();
@@ -276,7 +276,7 @@ export const getItemPrices = async (priceList?: string, itemCode?: string, wareh
   }
 };
 
-export const getItemPrice = async (itemCode: string, priceList: string, warehouse?: string) => {
+export const getItemPrice = async (itemCode: string, priceList: string) => {
   try {
     const response = await getItemPrices(priceList, itemCode);
     const prices = response.data || [];
@@ -639,11 +639,10 @@ export const combineItemsWithPrices = (items: any[], prices: any[], priceList?: 
 };
 
 // Search and filter utilities
-export const searchItems = async (searchTerm: string, priceList?: string, warehouse?: string) => {
+export const searchItems = async (searchTerm: string, priceList?: string) => {
   try {
-    const pricesResponse = await getItemPrices(priceList, undefined, undefined, searchTerm, 50);
+    const pricesResponse = await getItemPrices(priceList, undefined, searchTerm, 50);
     const prices = pricesResponse.data || [];
-    // Normalize to the shape used in Orders
     return prices.map((p: any) => ({
       item_code: p.item_code,
       item_name: p.item_name,

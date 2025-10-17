@@ -42,7 +42,7 @@ export default function PriceList() {
       setIsLoading(true);
       try {
         // Use selected Location (Warehouse) as the price list, like Create Order
-        const response = await getItemPrices(selectedWarehouse, undefined, undefined, undefined, itemPageSize, itemPage);
+        const response = await getItemPrices(selectedWarehouse, undefined, undefined, itemPageSize, itemPage);
         setItems(response.data || []);
       } catch (err) {
         console.error('Error fetching item prices:', err);

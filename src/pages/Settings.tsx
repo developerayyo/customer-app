@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { useAuthStore } from '../store/useAuthStore';
+import useAuthStore from '../store/useAuthStore';
 
 export default function Settings() {
   const { user, logout } = useAuthStore();
@@ -70,15 +70,15 @@ export default function Settings() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
+                  Username
                 </label>
-                <div className="input-field bg-gray-50">{user?.full_name || 'N/A'}</div>
+                <div className="input-field bg-gray-50">{user || 'N/A'}</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email
                 </label>
-                <div className="input-field bg-gray-50">{user?.email || 'N/A'}</div>
+                <div className="input-field bg-gray-50">N/A</div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -86,13 +86,13 @@ export default function Settings() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Customer ID
                 </label>
-                <div className="input-field bg-gray-50">{user?.name || 'N/A'}</div>
+                <div className="input-field bg-gray-50">N/A</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Phone
                 </label>
-                <div className="input-field bg-gray-50">{user?.phone || 'N/A'}</div>
+                <div className="input-field bg-gray-50">N/A</div>
               </div>
             </div>
           </div>

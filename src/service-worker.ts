@@ -22,7 +22,7 @@ precacheAndRoute(manifest);
 const fileExtensionRegexp = new RegExp('/[^/?]+\\.[^/]+$');
 registerRoute(
   // Return false to exempt requests from being fulfilled by index.html
-  ({ request, url }: { request: Request; url: URL }) => {
+  ({ url }: { url: URL }) => {
     // If this is a URL that starts with /api, it's for the API
     if (url.pathname.startsWith('/api')) {
       return false;
@@ -92,14 +92,14 @@ registerRoute(
 
 // This allows the web app to trigger skipWaiting via
 // registration.waiting.postMessage({type: 'SKIP_WAITING'})
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
+  if ((event as any).data && (event as any).data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
 
 // Background sync for offline form submissions
-self.addEventListener('sync', (event) => {
+self.addEventListener('sync', (event: any) => {
   if (event.tag === 'order-sync') {
     event.waitUntil(syncOrders());
   } else if (event.tag === 'feedback-sync') {
@@ -158,7 +158,7 @@ async function syncFeedback() {
 }
 
 // Handle push notifications
-self.addEventListener('push', (event) => {
+self.addEventListener('push', (event: PushEvent) => {
   const data = event.data?.json() ?? {};
   const title = data.title || 'New Notification';
   const options = {
@@ -176,12 +176,12 @@ self.addEventListener('push', (event) => {
 });
 
 // Handle notification clicks
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
   event.notification.close();
   
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clientList) => {
-      const url = event.notification.data.url;
+      const url = (event.notification as any).data?.url || '/';
       
       // If a window is already open, focus it
       for (const client of clientList) {

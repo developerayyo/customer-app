@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import useOrderStore from '../store/useOrderStore';
-import { getWarehouses, getItemPrices, searchItems, findCustomerByPortalUser, uploadAndAttachFile, getPlants } from '../api/erpnextApi';
+import { getWarehouses, getItemPrices, findCustomerByPortalUser, uploadAndAttachFile, getPlants } from '../api/erpnextApi';
 import useAuthStore from '../store/useAuthStore';
 import { formatNaira } from '../utils/currency';
 
@@ -40,7 +40,6 @@ export default function Orders() {
   const [selectedPlant, setSelectedPlant] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
@@ -147,23 +146,6 @@ export default function Orders() {
     setPlant(e.target.value);
   };
 
-  const handleSearch = async (searchTerm: string) => {
-    if (!searchTerm.trim() || !selectedWarehouse) {
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Treat selected Location (Warehouse) as the Item Price price_list
-      const searchResults = await searchItems(searchTerm, selectedWarehouse);
-      setAvailableItems(searchResults);
-    } catch (error) {
-      console.error('Error searching items:', error);
-      setError('Failed to search items. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleAddItem = () => {
     if (!selectedItem || quantity <= 0) {
@@ -197,19 +179,6 @@ export default function Orders() {
     updateItemQuantity(itemCode, newQty);
   };
 
-  const handleNextStep = () => {
-    // Merge Make Payment into Step 1; remove confirmation step
-    if (!selectedWarehouse || items.length === 0) {
-      setError('Please select a location and add at least one item');
-      return;
-    }
-    setError('');
-    // No step progression; keep single step UI
-  };
-
-  const handlePreviousStep = () => {
-    setStep(step - 1);
-  };
 
   const handleSubmitOrder = async () => {
     if (!selectedWarehouse || items.length === 0) {
@@ -286,8 +255,7 @@ export default function Orders() {
           <div className="mb-8">
             <div className="flex items-center">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">1</div>
--              <div className="ml-2 text-sm font-medium">Select Location & Items, then upload receipt</div>
-+              {/* Removed instructional text per request */}
+              {/* Removed instructional text per request */}
             </div>
           </div>
 

@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { getSalesOrderDetails, getDeliveryNotesForOrder, getSalesInvoicesForOrder, getAttachments, findCustomerByPortalUser, downloadDeliveryNotePdf, downloadInvoicePdf } from '../api/erpnextApi';
 import useAuthStore from '../store/useAuthStore';
 import { formatNaira } from '../utils/currency';
 
-const BASE_API = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const triggerBlobDownload = (blob: Blob, filename: string) => {
   const url = window.URL.createObjectURL(blob);
@@ -27,7 +26,7 @@ export default function OrderDetails() {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [polling, setPolling] = useState(false);
+  // Polling disabled; remove unused state to satisfy TS
   const [downloadingDeliveryId, setDownloadingDeliveryId] = useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
 
@@ -74,11 +73,8 @@ export default function OrderDetails() {
     };
 
     fetchOrderDetails();
-    // Reduce polling frequency to avoid constant refresh; disable for now
-    setPolling(false);
-    return () => {
-      setPolling(false);
-    };
+    // Reduce polling frequency to avoid constant refresh; disabled
+    return () => {};
   }, [id]);
 
   // Helper function to determine status color

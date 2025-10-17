@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
-import api, { downloadInvoicePdf, findCustomerByPortalUser, getSalesInvoices } from '../api/erpnextApi';
+import { downloadInvoicePdf, findCustomerByPortalUser, getSalesInvoices } from '../api/erpnextApi';
 import useAuthStore from '../store/useAuthStore';
 import { formatNaira } from '../utils/currency';
 

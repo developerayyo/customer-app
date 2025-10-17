@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
-import { submitFeedback, uploadFile } from '../api/erpnextApi';
-import { useAuthStore } from '../store/useAuthStore';
+import { submitFeedback, uploadFile, findCustomerByPortalUser } from '../api/erpnextApi';
+import useAuthStore from '../store/useAuthStore';
 
 export default function Feedback() {
   const { user } = useAuthStore();
@@ -41,9 +41,18 @@ export default function Feedback() {
         fileUrl = fileResponse.data.file_url;
       }
       
+      // Resolve customer name from portal user
+      let customerName = user || '';
+      try {
+        if (user) {
+          const customerDoc = await findCustomerByPortalUser(user);
+          customerName = (customerDoc as any)?.name || user;
+        }
+      } catch {}
+      
       // Submit feedback
       await submitFeedback({
-        customer: user?.name,
+        customer: customerName,
         subject: formData.subject,
         feedback_type: formData.feedback_type,
         rating: formData.rating,

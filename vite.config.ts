@@ -14,8 +14,8 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/api/, '/api'),
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
             // Add API key authentication for token-based auth
             const apiKey = process.env.VITE_API_KEY;
             const apiSecret = process.env.VITE_API_SECRET;
