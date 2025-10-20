@@ -21,6 +21,37 @@ if (import.meta.env.MODE === 'production' && 'serviceWorker' in navigator) {
   });
 }
 
+// Handle files opened via OS (file_handlers) when supported
+if ('launchQueue' in window) {
+  (window as any).launchQueue.setConsumer(async (launchParams: any) => {
+    const fileHandles: any[] = launchParams.files || [];
+    if (fileHandles.length > 0) {
+      // Persist info for the OpenFile page to consume
+      const payload = { count: fileHandles.length };
+      try {
+        sessionStorage.setItem('open-file-payload', JSON.stringify(payload));
+      } catch {}
+      // Navigate to OpenFile route
+      window.location.href = '/open-file';
+    }
+  });
+}
+
+// Register periodic background sync if supported
+if ('serviceWorker' in navigator && 'periodicSync' in (navigator as any)) {
+  (async () => {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const status = await (navigator as any).permissions.query({ name: 'periodic-background-sync' });
+      if (status.state === 'granted') {
+        await (reg as any).periodicSync.register('dashboard-sync', { minInterval: 12 * 60 * 60 * 1000 });
+      }
+    } catch (e) {
+      console.warn('Periodic sync registration failed:', e);
+    }
+  })();
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

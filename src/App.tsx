@@ -14,6 +14,8 @@ import Feedback from './pages/Feedback';
 import News from './pages/News';
 import PriceList from './pages/PriceList';
 import Settings from './pages/Settings';
+import ShareTarget from './pages/ShareTarget';
+import OpenFile from './pages/OpenFile';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -93,6 +95,18 @@ function App() {
         <Route path="/settings" element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        } />
+
+        {/* Manifest target routes */}
+        <Route path="/share-target" element={
+          <ProtectedRoute>
+            <ShareTarget />
+          </ProtectedRoute>
+        } />
+        <Route path="/open-file" element={
+          <ProtectedRoute>
+            <OpenFile />
           </ProtectedRoute>
         } />
         

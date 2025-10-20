@@ -163,8 +163,8 @@ self.addEventListener('push', (event: PushEvent) => {
   const title = data.title || 'New Notification';
   const options = {
     body: data.body || 'You have a new notification',
-    icon: '/logo192.png',
-    badge: '/badge.png',
+    icon: '/logo_512x512.png',
+    badge: '/logo.png',
     data: {
       url: data.url || '/',
     },
@@ -194,4 +194,57 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
       return self.clients.openWindow(url);
     })
   );
+});
+
+// Handle share target POST submissions
+self.addEventListener('fetch', (event: FetchEvent) => {
+  const url = new URL(event.request.url);
+  if (event.request.method === 'POST' && url.pathname === '/share-target') {
+    event.respondWith((async () => {
+      try {
+        const formData = await (event.request.clone() as Request).formData();
+        const title = formData.get('title') as string | null;
+        const text = formData.get('text') as string | null;
+        const link = formData.get('url') as string | null;
+        const files = formData.getAll('files') as File[];
+
+        // Persist shared payload to cache for the app page to consume
+        const cache = await caches.open('shared-data');
+        await cache.put('/shared-payload', new Response(JSON.stringify({ title, text, link, files: files.length }))); // files cannot be serialized, pass count
+
+        // Focus existing client or open Share page
+        const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const targetUrl = '/share-target';
+        for (const client of allClients) {
+          if (client.url.includes(targetUrl)) {
+            client.focus();
+            return Response.redirect(targetUrl, 303);
+          }
+        }
+        await self.clients.openWindow(targetUrl);
+        return new Response('', { status: 201 });
+      } catch (err) {
+        console.error('Share target handling failed:', err);
+        return new Response('Share failed', { status: 500 });
+      }
+    })());
+  }
+});
+
+// Periodic background sync for dashboard data
+self.addEventListener('periodicsync', (event: any) => {
+  if (event.tag === 'dashboard-sync') {
+    event.waitUntil((async () => {
+      try {
+        await fetch('/api/method/ping');
+        // Prime caches for key API endpoints
+        await caches.open('api-cache');
+        // Optionally hit endpoints to refresh server-side cache
+        await fetch('/api/resource/Sales Order?limit=10');
+        await fetch('/api/resource/Sales Invoice?limit=10');
+      } catch (e) {
+        console.warn('Periodic sync failed:', e);
+      }
+    })());
+  }
 });

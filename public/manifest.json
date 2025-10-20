@@ -1,37 +1,78 @@
 {
-  "short_name": "LMT Customer Portal",
+  "id": "com.lmt.customerportal",
   "name": "LMT Customer Portal",
+  "short_name": "LMT Customer",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "finance"],
+  "description": "LMT Customer portal for managing orders, invoices, and account information",
   "icons": [
-    {
-      "src": "logo.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "logo.png",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
+    { "src": "logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "logo_512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay", "tabbed"],
   "theme_color": "#0055FF",
   "background_color": "#F4F6FA",
   "orientation": "portrait",
-  "scope": "/",
-  "description": "LMT Customer portal for managing orders, invoices, and account information",
+  "shortcuts": [
+    { "name": "Orders", "url": "/orders", "description": "View recent orders" },
+    { "name": "Invoices", "url": "/invoices", "description": "Manage invoices" },
+    { "name": "Payments", "url": "/payments", "description": "Review payments" }
+  ],
+  "scope_extensions": [
+    { "origin": "https://customers.lordsminttech.com.ng" }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [
+    { "platform": "play", "id": "com.lmt.customerportal", "url": "https://play.google.com/store/apps/details?id=com.lmt.customerportal" },
+    { "platform": "windows", "id": "LMT.CustomerPortal" }
+  ],
+  "iarc_rating_id": "IARC:0000-PLACEHOLDER-0000-PLACEHOLDER",
   "screenshots": [
-    {
-      "src": "screenshot1.png",
-      "type": "image/png",
-      "sizes": "540x720"
-    },
-    {
-      "src": "screenshot2.png",
-      "type": "image/png",
-      "sizes": "540x720"
+    { "src": "screenshot-wide.png", "type": "image/png", "sizes": "1280x720", "form_factor": "wide" },
+    { "src": "screenshot-narrow.png", "type": "image/png", "sizes": "540x720", "form_factor": "narrow" }
+  ],
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        { "name": "files", "accept": ["image/*", "application/pdf"] }
+      ]
     }
-  ]
+  },
+  "file_handlers": [
+    {
+      "action": "/open-file",
+      "accept": [
+        { "mime_type": "application/pdf", "file_extensions": [".pdf"] },
+        { "mime_type": "image/*", "file_extensions": [".png", ".jpg", ".jpeg"] }
+      ]
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "focus-existing-or-open"
+  },
+  "edge_side_panel": {
+    "path": "/side-panel",
+    "preferred_width": 380
+  },
+  "widgets": [
+    {
+      "name": "Orders Widget",
+      "description": "Shows recent orders",
+      "path": "/widgets/orders",
+      "icons": [{ "src": "logo.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "note_taking": {
+    "new_note_url": "/notes/new"
+  }
 }
