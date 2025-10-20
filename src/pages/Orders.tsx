@@ -251,14 +251,6 @@ export default function Orders() {
         )}
 
         <div className="card">
-          {/* Single Step: Select Location, Items, and Attach Receipt */}
-          <div className="mb-8">
-            <div className="flex items-center">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">1</div>
-              {/* Removed instructional text per request */}
-            </div>
-          </div>
-
           {isLoading ? (
             <div className="flex justify-center py-10">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>

@@ -1,21 +1,18 @@
 {
-  "short_name": "Customer App",
-  "name": "ERPNext Customer Portal",
+  "short_name": "LMT Customer Portal",
+  "name": "LMT Customer Portal",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
   "start_url": ".",
@@ -24,7 +21,7 @@
   "background_color": "#F4F6FA",
   "orientation": "portrait",
   "scope": "/",
-  "description": "Customer portal for managing orders, invoices, and account information",
+  "description": "LMT Customer portal for managing orders, invoices, and account information",
   "screenshots": [
     {
       "src": "screenshot1.png",

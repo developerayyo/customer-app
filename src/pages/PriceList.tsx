@@ -35,6 +35,24 @@ export default function PriceList() {
     fetchInitialData();
   }, []);
 
+  // Debounced server-side search for warehouses
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      try {
+        const q = warehouseQuery.trim();
+        const filters = q
+          ? JSON.stringify([["disabled","=",0],["warehouse_name","like", `%${q}%`]])
+          : undefined; // default filter handled by API when undefined
+        const resp = await getWarehouses(filters, undefined, 20, 0);
+        const list = resp?.data ?? resp ?? [];
+        setWarehouses(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.error('Error searching warehouses:', err);
+      }
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [warehouseQuery]);
+
   useEffect(() => {
     if (!selectedWarehouse) return;
 
@@ -59,8 +77,8 @@ export default function PriceList() {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Price List</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">
+          <h1 className="text-2xl font-semibold">Price List</h1>
+          <p className="mt-1 text-sm text-gray-500">
             View current prices for items at your selected location.
           </p>
         </div>
@@ -73,7 +91,7 @@ export default function PriceList() {
 
         <div className="card">
           <div className="mb-6">
-            <label htmlFor="warehouseCombobox" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-200">
+            <label htmlFor="warehouseCombobox" className="block text-sm font-medium text-gray-700 mb-2">
               Select Location
             </label>
             <div className="relative">
@@ -82,20 +100,20 @@ export default function PriceList() {
                 name="warehouseCombobox"
                 className="input-field"
                 placeholder="Type to search locations..."
+                autoComplete="off"
                 value={warehouseQuery}
                 onFocus={() => setLocationOpen(true)}
                 onChange={(e) => { setWarehouseQuery(e.target.value); setLocationOpen(true); }}
                 onBlur={() => setTimeout(() => setLocationOpen(false), 150)}
               />
               {locationOpen && (
-                <div className="absolute z-10 mt-2 w-full rounded-md border border-gray-200 bg-white dark:bg-[var(--color-surface)] shadow-lg max-h-60 overflow-auto">
-                  {warehouses
-                    .filter((w) => (w.warehouse_name ?? w.name).toLowerCase().includes(warehouseQuery.toLowerCase()))
-                    .map((w) => (
+                <div className="absolute z-50 mt-2 w-full rounded-md border border-gray-200 bg-white shadow-lg max-h-60 overflow-auto">
+                  {warehouses.length > 0 ? (
+                    warehouses.map((w) => (
                       <button
                         key={w.name}
                         type="button"
-                        className="block w-full text-left px-3 py-2 text-sm text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-[var(--color-muted)]"
+                        className="block w-full text-left px-3 py-2 text-sm text-gray-900 hover:bg-gray-50"
                         onMouseDown={() => {
                           setSelectedWarehouse(w.name);
                           setWarehouseQuery(w.warehouse_name ?? w.name);
@@ -105,9 +123,9 @@ export default function PriceList() {
                       >
                         {w.warehouse_name ?? w.name}
                       </button>
-                    ))}
-                  {warehouses.filter((w) => (w.warehouse_name ?? w.name).toLowerCase().includes(warehouseQuery.toLowerCase())).length === 0 && (
-                    <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-300">No locations found</div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-gray-500">No locations found</div>
                   )}
                 </div>
               )}

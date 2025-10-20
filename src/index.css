@@ -49,4 +49,12 @@ body {
   .badge-danger { @apply bg-[#fee2e2] text-[#7f1d1d]; }
   .badge-info { @apply bg-blue-100 text-blue-800; }
   .badge-neutral { @apply bg-gray-100 text-gray-800; }
+  .tabbar { @apply fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur border-t border-gray-200; }
+  .tabbar-list { @apply flex justify-around items-center h-16; }
+  .tabbar-item { @apply flex flex-col items-center text-xs text-gray-600; }
+  .tabbar-item-active { @apply text-blue-600; }
+  .pill { @apply px-3 py-1.5 rounded-full border bg-white text-gray-700 shadow-sm; }
+  .kpi-card { @apply bg-white border border-gray-200 rounded-2xl shadow-sm p-6 transition-shadow text-center; }
+  .kpi-title { @apply text-sm text-gray-500; }
+  .kpi-value { @apply mt-1 text-2xl font-semibold text-gray-900; }
 }

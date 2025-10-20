@@ -1,4 +1,4 @@
-# Netlify configuration for Customer App
+# Netlify configuration for LMT Customer Portal
 
 [build]
   command = "npm run build"

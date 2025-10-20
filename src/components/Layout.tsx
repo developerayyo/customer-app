@@ -13,6 +13,7 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import useAuthStore from '../store/useAuthStore';
+import Logo from './Logo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -69,7 +70,8 @@ export default function Layout({ children }: LayoutProps) {
               <Dialog.Panel className="relative mr-16 flex w-full max-w-xs flex-1">
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4">
                   <div className="flex h-16 shrink-0 items-center">
-                    <h1 className="text-xl font-bold text-gray-900">Customer App</h1>
+                    <Logo size={28} className="mr-2" />
+                    <h1 className="text-xl font-bold text-gray-900">LMT Customer Portal</h1>
                   </div>
                   <nav className="flex flex-1 flex-col">
                     <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -121,7 +123,8 @@ export default function Layout({ children }: LayoutProps) {
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
           <div className="flex h-16 shrink-0 items-center">
-            <h1 className="text-xl font-bold text-gray-900">Customer App</h1>
+            <Logo size={28} className="mr-2" />
+            <h1 className="text-xl font-bold text-gray-900">LMT Customer Portal</h1>
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -176,6 +179,10 @@ export default function Layout({ children }: LayoutProps) {
           </button>
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+            <div className="flex items-center">
+              <Logo size={28} className="mr-2" />
+              <span className="font-semibold text-gray-900 hidden sm:inline">LMT Customer Portal</span>
+            </div>
             <div className="flex-1" />
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               <div className="hidden lg:block lg:text-sm lg:font-semibold lg:leading-6 lg:text-gray-900">
@@ -185,9 +192,51 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
 
-        <main className="py-10">
+        <main className="py-10 pb-20 lg:pb-0">
           <div className="px-4 sm:px-6 lg:px-8">{children}</div>
         </main>
+
+        {/* Mobile bottom tab bar */}
+        <nav className="tabbar lg:hidden">
+          <ul className="tabbar-list">
+            <li>
+              <Link
+                to="/"
+                className={`tabbar-item ${location.pathname === '/' ? 'tabbar-item-active' : ''}`}
+              >
+                <HomeIcon className="h-6 w-6" />
+                <span>Home</span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/orders"
+                className={`tabbar-item ${location.pathname.startsWith('/orders') ? 'tabbar-item-active' : ''}`}
+              >
+                <ShoppingCartIcon className="h-6 w-6" />
+                <span>Orders</span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/invoices"
+                className={`tabbar-item ${location.pathname.startsWith('/invoices') ? 'tabbar-item-active' : ''}`}
+              >
+                <DocumentTextIcon className="h-6 w-6" />
+                <span>Invoices</span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/payments"
+                className={`tabbar-item ${location.pathname.startsWith('/payments') ? 'tabbar-item-active' : ''}`}
+              >
+                <CreditCardIcon className="h-6 w-6" />
+                <span>Payments</span>
+              </Link>
+            </li>
+          </ul>
+        </nav>
       </div>
     </div>
   );
