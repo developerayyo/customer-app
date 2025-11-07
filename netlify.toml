@@ -4,6 +4,10 @@
   command = "npm run build"
   publish = "dist"
 
+# Ensure pnpm installs tolerate lockfile updates when package.json changes
+[build.environment]
+  PNPM_FLAGS = "--no-frozen-lockfile"
+
 # SPA routing: let client-side router handle all paths
 [[redirects]]
   from = "/*"

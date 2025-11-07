@@ -2,6 +2,7 @@
       "name": "Customer App UI Redesign",
       "version": "0.1.0",
       "private": true,
+      "packageManager": "pnpm@10.20.0",
       "dependencies": {
             "@headlessui/react": "^2.2.9",
             "@internationalized/date": "^3.5.5",
