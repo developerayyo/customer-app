@@ -14,7 +14,7 @@
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "window-controls-overlay", "tabbed"],
-  "theme_color": "#0055FF",
+  "theme_color": "#121212",
   "background_color": "#F4F6FA",
   "orientation": "portrait",
   "shortcuts": [

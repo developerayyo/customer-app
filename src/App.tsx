@@ -20,11 +20,15 @@ import OpenFile from './pages/OpenFile';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, checkAuth } = useAuthStore();
+  const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+  
+  if (isLoading) {
+    return <div style={{ padding: 16 }}>Checking session…</div>;
+  }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" />;

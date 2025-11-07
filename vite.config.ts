@@ -3,7 +3,8 @@ import { defineConfig } from 'vite';
   // Temporarily disable Tailwind Vite plugin due to ESM require issue
   import { VitePWA } from 'vite-plugin-pwa'
   import react from '@vitejs/plugin-react-swc';
-  import path from 'path';
+import path from 'path';
+import fs from 'fs';
 
   export default defineConfig({
     plugins: [
@@ -69,10 +70,14 @@ import { defineConfig } from 'vite';
       target: 'esnext',
       outDir: 'dist',
     },
-    server: {
+  server: {
       port: 3000,
       open: true,
       host: true,
+      https: {
+        key: fs.readFileSync(path.resolve(__dirname, 'certs/dev.key')),
+        cert: fs.readFileSync(path.resolve(__dirname, 'certs/dev.crt')),
+      },
       proxy: {
         '/api': {
           target: 'https://erp.lordsminttech.com.ng',
@@ -81,16 +86,17 @@ import { defineConfig } from 'vite';
           rewrite: (path) => path.replace(/^\/api/, '/api'),
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyReq) => {
-              // Add API key authentication for token-based auth
-              const apiKey = process.env.VITE_API_KEY;
-              const apiSecret = process.env.VITE_API_SECRET;
-              
-              if (apiKey && apiSecret) {
-                proxyReq.setHeader('Authorization', `token ${apiKey}:${apiSecret}`);
-              }
-              
-              // Remove any problematic headers
+              // Ensure no conflicting headers; rely solely on session cookies
               proxyReq.removeHeader('Expect');
+            });
+            proxy.on('proxyRes', (proxyRes) => {
+              // Rewrite Set-Cookie Domain to localhost for dev, to ensure browser stores cookies
+              const setCookie = proxyRes.headers['set-cookie'];
+              if (Array.isArray(setCookie)) {
+                proxyRes.headers['set-cookie'] = setCookie.map((c) =>
+                  c.replace(/;\s*Domain=[^;]+/i, '')
+                );
+              }
             });
           }
         }

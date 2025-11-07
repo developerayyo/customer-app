@@ -1,18 +1,29 @@
 import axios from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
 
-// Environment-based token auth configuration
-const API_KEY = import.meta.env.VITE_API_KEY;
-const API_SECRET = import.meta.env.VITE_API_SECRET;
-const IS_TOKEN_AUTH = Boolean(API_KEY && API_SECRET);
+// Session-based ERPNext auth only; no API key/secret
+// Support both Vite and CRA-style env names for baseURL
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  // @ts-ignore: allow CRA-style env fallback in Vite builds
+  (import.meta.env as any).REACT_APP_ERP_URL ||
+  '/api';
 
-// Use the proxy URL for local development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// Ensure baseURL targets ERPNext's /api path regardless of env style
+const normalizedBase = (() => {
+  const trimmed = (API_BASE_URL || '').replace(/\/$/, '');
+  if (trimmed.endsWith('/api')) return trimmed; // already points to /api
+  if (trimmed === '/api') return trimmed;
+  return `${trimmed}/api`;
+})();
 
-// Create axios instance with default config
+// CSRF token cached in memory for browser-only state-changing requests
+let csrfToken: string | null = null;
+
+// Create axios instance that always uses cookies
 const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: !IS_TOKEN_AUTH,
-  // Ensure CSRF header is attached from cookie for session auth
+  baseURL: normalizedBase,
+  withCredentials: true,
   xsrfCookieName: 'csrf_token',
   xsrfHeaderName: 'X-Frappe-CSRF-Token',
   headers: {
@@ -21,33 +32,53 @@ const api = axios.create({
   },
 });
 
-// Attach Authorization header for token-based auth in production
-if (IS_TOKEN_AUTH) {
-  api.defaults.headers.common['Authorization'] = `token ${API_KEY}:${API_SECRET}`;
-}
+// Attach CSRF header automatically for state-changing requests
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const method = (config.method ?? 'get').toLowerCase();
+  const isMutating = method === 'post' || method === 'put' || method === 'patch' || method === 'delete';
+  if (isMutating && csrfToken) {
+    const headers = config.headers as any;
+    if (headers && typeof headers.set === 'function') {
+      headers.set('X-Frappe-CSRF-Token', csrfToken);
+    } else if (headers) {
+      headers['X-Frappe-CSRF-Token'] = csrfToken;
+    }
+  }
+  return config;
+});
 
-// Authentication APIs
+// Handle unauthorized responses by clearing state and redirecting to login
+api.interceptors.response.use(
+  (resp) => resp,
+  (error) => {
+    const status = error?.response?.status;
+    // Only force logout on 401 (session invalid/expired). Do not redirect on 403
+    // because some resource endpoints may return 403 for permission issues.
+    if (status === 401) {
+      try {
+        localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('user');
+        localStorage.removeItem('customer_name');
+      } catch {}
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Authentication APIs (session only)
 export const login = async (username: string, password: string) => {
   try {
-    // If token auth is configured, bypass ERP login and authenticate locally
-    if (IS_TOKEN_AUTH) {
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('user', username);
-      return { message: 'Logged In', user: username };
-    }
-
-    const response = await api.post('/method/login', {
-      usr: username,
-      pwd: password,
+    const form = new URLSearchParams({ usr: username, pwd: password });
+    const response = await api.post('/method/login', form, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
 
-    // Store user info in localStorage
-    if (response.data.message === 'Logged In') {
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('user', username);
-    }
-
-    console.log('Login response:', response.data);
+    // Do not set localStorage here; state will be updated after verifying session
+    // Refresh CSRF token after login (reads cookie or tries legacy endpoints)
+    try { await getCsrfToken(); } catch (_) {}
     return response.data;
   } catch (error) {
     console.error('Login error:', error);
@@ -55,21 +86,45 @@ export const login = async (username: string, password: string) => {
   }
 };
 
+export const getCurrentUser = async (): Promise<string | null> => {
+  try {
+    const resp = await api.get('/method/frappe.auth.get_logged_user');
+    const user = resp?.data?.message || null;
+    // Treat 'Guest' as unauthenticated
+    return user && user !== 'Guest' ? user : null;
+  } catch (error) {
+    console.error('getCurrentUser error:', error);
+    throw error;
+  }
+};
+
+export const getCsrfToken = async (): Promise<string> => {
+  // Prefer reading CSRF from cookie for same-origin (proxied) requests
+  try {
+    if (typeof document !== 'undefined') {
+      const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+      csrfToken = match ? decodeURIComponent(match[1]) : null;
+      if (csrfToken) {
+        api.defaults.headers.common['X-Frappe-CSRF-Token'] = csrfToken;
+        return csrfToken;
+      }
+    }
+  } catch (_) {
+    // ignore cookie parse errors
+  }
+  // If cookie not present, return empty string; CSRF is not required for GET
+  // and will be available after successful login in subsequent requests.
+  return '';
+};
+
 export const logout = async () => {
   try {
-    // If token auth is configured, bypass ERP logout and clear local state only
-    if (IS_TOKEN_AUTH) {
+    const response = await api.post('/method/logout');
+    try {
       localStorage.removeItem('isAuthenticated');
       localStorage.removeItem('user');
-      return { message: 'Logged Out' };
-    }
-
-    const response = await api.post('/method/logout');
-
-    // Clear localStorage
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('user');
-
+      localStorage.removeItem('customer_name');
+    } catch {}
     return response.data;
   } catch (error) {
     console.error('Logout error:', error);

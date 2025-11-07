@@ -20,7 +20,9 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
-      setError('Invalid username or password');
+      // Try to surface ERPNext API error text
+      const msg = (err as any)?.response?.data?.message || (err as any)?.message || 'Invalid username or password';
+      setError(String(msg));
     } finally {
       setIsLoading(false);
     };

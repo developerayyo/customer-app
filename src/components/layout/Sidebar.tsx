@@ -40,7 +40,7 @@ const navItems = [
 export function Sidebar({ open, onClose }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, user } = useAuthStore();
+  const { logout, user, customerName } = useAuthStore();
   const { theme, toggleTheme } = useTheme();
 
   const handleAccountSettings = () => {
@@ -57,7 +57,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     try {
       await logout();
     } finally {
-      navigate('/');
+      navigate('/login', { replace: true });
       onClose();
     }
   };
@@ -129,10 +129,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <DropdownMenuTrigger asChild>
                 <button className="cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-accent/30 hover:bg-accent/50 transition-colors">
                   <div className="size-10 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#B9972C] flex items-center justify-center text-[#222222] font-semibold">
-                    JD
+                    {(customerName || user || 'C')
+                      .split(' ')
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map(part => part[0]?.toUpperCase() || '')
+                      .join('') || 'C'}
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="font-medium truncate">John Doe</p>
+                    <p className="font-medium truncate">{customerName || user || 'Customer'}</p>
                     <p className="text-xs text-muted-foreground truncate">{user}</p>
                   </div>
                 </button>
@@ -140,7 +145,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <DropdownMenuContent className="w-64 p-4" sideOffset={8} align="start">
                 <div className="flex items-center pb-2">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">John Doe</p>
+                    <p className="font-medium truncate">{customerName || user || 'Customer'}</p>
                   </div>
                   <Button
                     variant="outline"
