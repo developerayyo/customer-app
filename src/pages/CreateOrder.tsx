@@ -2,17 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Trash2, Loader } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
 import useOrderStore from '../store/useOrderStore';
 
 import { SmartBackButton } from '../components/ui/back-button';
-import { SearchDropdown, SearchOption } from '../components/ui/search-dropdown';
+import { SearchDropdown, type SearchOption } from '../components/ui/search-dropdown';
 import { getItemPrices, getWarehouses, uploadAndAttachFile } from '../api/erpnextApi';
 import { formatNaira } from '../utils/currency';
 import useAuthStore from '../store/useAuthStore';
@@ -42,6 +35,45 @@ export function CreateOrder() {
   const [warehouseQuery, setWarehouseQuery] = useState('');
   const [productQuery, setProductQuery] = useState('');
   const [itemPage, setItemPage] = useState(1);
+
+  // Fetch enabled warehouses when the field receives focus
+  const handleWarehouseFocus = async () => {
+    try {
+      const resp = await getWarehouses(undefined, undefined, 20, 0);
+      const list = resp?.data ?? resp ?? [];
+      setWarehouses(Array.isArray(list) ? list : []);
+      // Ensure dropdown opens by having a non-empty query
+      if (!warehouseQuery?.trim()) {
+        setWarehouseQuery(warehouseObj?.warehouse_name ?? warehouseObj?.name ?? ' ');
+      }
+    } catch (err) {
+      console.error('Error fetching warehouses on focus:', err);
+    }
+  };
+
+  // Fetch item prices for the selected warehouse when product field receives focus
+  const handleProductFocus = async () => {
+    try {
+      if (!selectedWarehouse) return;
+      const pricesResponse = await getItemPrices(selectedWarehouse, undefined, undefined, 50, 1);
+      const prices = pricesResponse?.data ?? pricesResponse ?? [];
+      const normalized = (Array.isArray(prices) ? prices : []).map((p: any) => ({
+        item_code: p.item_code,
+        item_name: p.item_name,
+        price: p.price_list_rate,
+        currency: p.currency,
+        price_list: p.price_list,
+        valid_from: p.valid_from,
+        valid_upto: p.valid_upto,
+      }));
+      setAvailableProducts(normalized);
+      if (!productQuery?.trim()) {
+        setProductQuery(' ');
+      }
+    } catch (error) {
+      console.error('Error fetching item prices on focus:', error);
+    }
+  };
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -212,7 +244,7 @@ export function CreateOrder() {
     <div className="p-6 lg:p-8 max-w-5xl mx-auto">
       {/* Sticky Back */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xs backdrop-opacity-45 supports-[backdrop-filter]:bg-background/60 py-2">
-        <SmartBackButton label="Back to Orders" className="my-2" fallbackTo="/orders" />
+        <SmartBackButton className="my-2" fallbackTo="/orders" />
       </div>
       {/* Header */}
       <div className="mb-10">
@@ -234,6 +266,7 @@ export function CreateOrder() {
               onChange={handleWarehouseChange}
               query={warehouseQuery}
               onQueryChange={setWarehouseQuery}
+              onFocus={handleWarehouseFocus}
               placeholder="Type to search locations..."
               emptyLabel="No location found"
             />
@@ -266,6 +299,7 @@ export function CreateOrder() {
                 }}
                 query={productQuery}
                 onQueryChange={setProductQuery}
+                onFocus={handleProductFocus}
                 placeholder="Type to search available products..."
                 emptyLabel="No product found"
               />

@@ -84,7 +84,7 @@ export function InvoiceDetails() {
     <div className="p-3 xs:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Sticky Back */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur backdrop-opacity-40 supports-[backdrop-filter]:bg-background/60 py-2">
-        <SmartBackButton label="Back to Invoices" className="my-3" fallbackTo="/invoices" />
+        <SmartBackButton className="my-3" fallbackTo="/invoices" />
       </div>
       {/* Header */}
       <div className="mb-8 mt-1.5">

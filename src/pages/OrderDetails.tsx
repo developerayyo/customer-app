@@ -165,7 +165,7 @@ export function OrderDetails() {
     <div className="p-3 xs:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Sticky Back */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/80 backdrop-opacity-35 py-2">
-        <SmartBackButton label="Back to Orders" className="my-2" fallbackTo="/orders" to="/orders" />
+        <SmartBackButton className="my-2" fallbackTo="/orders" to="/orders" />
       </div>
       {/* Header */}
       <div className="mb-8">

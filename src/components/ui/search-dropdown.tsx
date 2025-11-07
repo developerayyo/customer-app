@@ -9,6 +9,7 @@ type SearchDropdownProps = {
   onChange: (val: string | null) => void;
   query: string;
   onQueryChange: (q: string) => void;
+  onFocus?: () => void;
   placeholder?: string;
   emptyLabel?: string;
   className?: string;
@@ -21,6 +22,7 @@ export function SearchDropdown({
   onChange,
   query,
   onQueryChange,
+  onFocus,
   placeholder = "Type to search...",
   emptyLabel = "No results found",
   className,
@@ -111,7 +113,11 @@ export function SearchDropdown({
           onQueryChange(e.target.value);
           if (!open) setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+            setOpen(true)
+            onFocus?.();
+          }
+        }
         onKeyDown={onKeyDown}
         disabled={disabled}
       />
@@ -126,7 +132,7 @@ export function SearchDropdown({
         <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
       </button>
 
-      {open && query.length > 0 && (
+      {open && (
         <ul
           ref={listRef}
           role="listbox"
@@ -136,9 +142,12 @@ export function SearchDropdown({
             options.map((opt, idx) => {
               const isSelected = value === opt.value;
               const isActive = highlighted === idx;
+              const optionKey = typeof opt.value === 'string'
+                ? `opt-${opt.value}-${idx}`
+                : `opt-${idx}`;
               return (
                 <li
-                  key={opt.value}
+                  key={optionKey}
                   role="option"
                   aria-selected={isSelected}
                   className={`group flex cursor-pointer items-center gap-2 rounded-md py-1 select-none ${

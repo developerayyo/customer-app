@@ -74,8 +74,8 @@ export function Invoices() {
           sortBy,
           sortOrder,
           search: search?.trim() || undefined,
-          fromDate,
-          toDate,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
           docstatusIn: docFilter,
         });
         if (rows?.length < pageSize) setMoreItemAvailable(false);
@@ -174,7 +174,7 @@ export function Invoices() {
                 setStatusFilter(val);
               }}
             >
-              <SelectTrigger className="w-full md:w-52 h-[46px]!">
+              <SelectTrigger className="flex-1! lg:w-52 min-h-[46px]!">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>

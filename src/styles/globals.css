@@ -1,7 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
-@plugin './hero.ts';
-@source '../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -253,19 +251,13 @@
 
   /* Fix overridden styles affecting HeroUI DateRangePicker */
   .date-range-picker {
-    display: inline-flex;
-    align-items: center;
-    width: 100%;
-    min-height: 46px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background-color: var(--input-background);
-    padding: 0 0.5rem;
+    @apply bg-input-background dark:bg-input/30 dark:hover:bg-input/50;
+    @apply w-full min-h-[46px] text-foreground border rounded-md md:w-80;
+    @apply flex items-center justify-center;
   }
-  .date-range-picker input,
-  .date-range-picker button {
-    background-color: transparent !important;
-    border-radius: var(--radius-sm) !important;
+
+  .date-range-picker [data-slot="inner-wrapper"] {
+    @apply !gap-2;
   }
 }
 
@@ -421,14 +413,11 @@
 
 /* Input Fields */
 .input-field {
-  background: var(--input-background);
+  @apply py-2.5 px-4 bg-input-background dark:bg-input/30 dark:hover:bg-input/50;
+  @apply w-full min-h-11 text-foreground;
   border: 1px solid var(--input);
   border-radius: var(--radii-md);
-  padding: 10px 16px;
-  color: var(--foreground);
   transition: all 150ms ease-out;
-  width: 100%;
-  min-height: 44px;
 }
 
 .input-field:focus {

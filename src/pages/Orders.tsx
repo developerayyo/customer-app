@@ -175,8 +175,14 @@ export function Orders() {
                 onChange={(start, end) => setDateRange(start, end)}
               />
             </div>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-full md:w-52 h-[46px]!">
+            <Select
+              value={status}
+              onValueChange={(val: string) => {
+                setPage(1);
+                setStatus(val);
+              }}
+            >
+              <SelectTrigger className="flex-1! lg:w-52 min-h-[46px]!">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
