@@ -1,7 +1,11 @@
+import { useParams, useNavigate } from 'react-router-dom';
+import { Download, Package, MapPin, Calendar, FileText, Phone, Mail, User, Loader } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { OrderTimeline } from '../components/OrderTimeline';
+import { SmartBackButton } from '../components/ui/back-button';
+
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import Layout from '../components/Layout';
-import { getSalesOrderDetails, getDeliveryNotesForOrder, getSalesInvoicesForOrder, getAttachments, findCustomerByPortalUser, downloadDeliveryNotePdf, downloadInvoicePdf } from '../api/erpnextApi';
+import { getSalesOrderDetails, getDeliveryNotesForOrder, getSalesInvoicesForOrder, getAttachments, downloadDeliveryNotePdf, downloadInvoicePdf } from '../api/erpnextApi';
 import useAuthStore from '../store/useAuthStore';
 import { formatNaira } from '../utils/currency';
 
@@ -17,9 +21,9 @@ const triggerBlobDownload = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
-export default function OrderDetails() {
+export function OrderDetails() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuthStore();
+  const { customerName } = useAuthStore();
   const [order, setOrder] = useState<any>(null);
   const [deliveryNotes, setDeliveryNotes] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -40,14 +44,10 @@ export default function OrderDetails() {
         const so = response.data;
         // Authorization: ensure the viewing user is the mapped customer
         try {
-          if (user) {
-            const customerDoc = await findCustomerByPortalUser(user);
-            const customerName = (customerDoc as any)?.name || user;
-            if (so.customer !== customerName) {
-              setError('You are not authorized to view this order.');
-              setOrder(null);
-              return;
-            }
+          if (so.customer !== customerName) {
+            setError('You are not authorized to view this order.');
+            setOrder(null);
+            return;
           }
         } catch {}
         setOrder(so);
@@ -76,22 +76,6 @@ export default function OrderDetails() {
     // Reduce polling frequency to avoid constant refresh; disabled
     return () => {};
   }, [id]);
-
-  // Helper function to determine status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Completed':
-        return 'bg-green-100 text-green-800';
-      case 'Processing':
-        return 'bg-blue-100 text-blue-800';
-      case 'Pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   // Timeline helpers per requirement
   const dedupeByName = (arr: any[]) => Array.from(new Map(arr.map((item: any) => [item.name, item])).values());
@@ -165,286 +149,336 @@ export default function OrderDetails() {
     }
   };
 
+  const navigate = useNavigate();
+
+  const getStatusBadge = (docstatus: number) => {
+    const statusMap: Record<number, { label: string; className: string }> = {
+      0: { label: 'Draft', className: 'badge-warning' },
+      1: { label: 'Approved', className: 'badge-success' },
+      2: { label: 'Cancelled', className: 'badge-error' },
+    };
+    const config = statusMap[docstatus] || statusMap[1];
+    return <span className={config.className}>{config.label}</span>;
+  };
+
   return (
-    <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Order Details</h1>
-        </div>
-
-        {error && (
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="text-sm text-red-700">{error}</div>
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-          </div>
-        ) : order ? (
-          <div className="card">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-medium text-gray-900">
-                Order #{order.name}
-              </h2>
-              <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                {order.status}
-              </span>
+    <div className="p-3 xs:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* Sticky Back */}
+      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/80 backdrop-opacity-35 py-2">
+        <SmartBackButton label="Back to Orders" className="my-2" fallbackTo="/orders" to="/orders" />
+      </div>
+      {/* Header */}
+      <div className="mb-8">
+        {order && (
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+            <div>
+              <h1 className="mb-2">Order {order.name}</h1>
+              <p className="text-muted-foreground">
+                Created on {formatDateTime(order.creation)}
+              </p>
             </div>
-
-            {/* Order Timeline (Vertical) */}
-            <div className="mb-8">
-              <h3 className="text-md font-medium text-gray-900 mb-4">Order Timeline</h3>
-              <div className="flow-root">
-                <ul role="list" className="-mb-8">
-                  <li>
-                    <div className="relative pb-8">
-                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
-                      <div className="relative flex items-start space-x-3">
-                        <div>
-                          <span className={`h-8 w-8 rounded-full flex items-center justify-center ${isOrderReceived() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{isOrderReceived() ? '✓' : '1'}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">Order Received</p>
-                          <p className="text-xs text-gray-500">Sales Order is in Draft</p>
-                          <p className="text-xs text-gray-500">{order ? `Placed: ${formatDateTime(order.creation)}` : ''}</p>
-                          <p className="text-xs italic text-gray-500">We’ve logged your request and queued processing.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    <div className="relative pb-8">
-                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
-                      <div className="relative flex items-start space-x-3">
-                        <div>
-                          <span className={`h-8 w-8 rounded-full flex items-center justify-center ${isOrderApproved() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{isOrderApproved() ? '✓' : '2'}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">Order Approved</p>
-                          <p className="text-xs text-gray-500">Sales Order has been Submitted</p>
-                          <p className="text-xs text-gray-500">{order ? `Updated: ${formatDateTime(order.modified)}` : ''}</p>
-                          <p className="text-xs italic text-gray-500">Approved — dispatch is being scheduled.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    <div className="relative pb-8">
-                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
-                      <div className="relative flex items-start space-x-3">
-                        <div>
-                          <span className={`h-8 w-8 rounded-full flex items-center justify-center ${hasDeliveryDraft() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{hasDeliveryDraft() ? '✓' : '3'}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">Delivery in Process</p>
-                          <p className="text-xs text-gray-500">Delivery Note is in Draft</p>
-                          <p className="text-xs text-gray-500">{getFirstDraftDN() ? `Drafted: ${formatDateTime(getFirstDraftDN()?.posting_date, getFirstDraftDN()?.posting_time)}` : ''}</p>
-                          <p className="text-xs italic text-gray-500">Preparing items for dispatch.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    <div className="relative pb-8">
-                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
-                      <div className="relative flex items-start space-x-3">
-                        <div>
-                          <span className={`h-8 w-8 rounded-full flex items-center justify-center ${isDeliveryCompleted() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{isDeliveryCompleted() ? '✓' : '4'}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">Delivery Completed</p>
-                          <p className="text-xs text-gray-500">Delivery Note has been Submitted</p>
-                          <p className="text-xs text-gray-500">{getFirstSubmittedDN() ? `Delivered: ${formatDateTime(getFirstSubmittedDN()?.posting_date, getFirstSubmittedDN()?.posting_time)}` : ''}</p>
-                          <p className="text-xs italic text-gray-500">Delivered — you can download the delivery note.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    <div className="relative pb-8">
-                      <div className="relative flex items-start space-x-3">
-                        <div>
-                          <span className={`h-8 w-8 rounded-full flex items-center justify-center ${isInvoiceGenerated() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{isInvoiceGenerated() ? '✓' : '5'}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">Sales Invoice Generated</p>
-                          <p className="text-xs text-gray-500">Invoice has been Submitted</p>
-                          <p className="text-xs text-gray-500">{getFirstSubmittedInvoice() ? `Invoiced: ${formatDateTime(getFirstSubmittedInvoice()?.posting_date, getFirstSubmittedInvoice()?.posting_time)}` : ''}</p>
-                          <p className="text-xs italic text-gray-500">Invoice ready — view or download a copy.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                </ul>
-              </div>
+            <div className="flex items-center gap-3">
+              {getStatusBadge(order.docstatus)}
             </div>
-
-            {/* Order Details */}
-            <div className="border-t border-gray-200 pt-4">
-              <dl className="divide-y divide-gray-200">
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Order Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {new Date(order.transaction_date).toLocaleDateString()}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Delivery Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {new Date(order.delivery_date).toLocaleDateString()}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Customer</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {order.customer}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Warehouse</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {order.set_warehouse}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Order Items */}
-            <div className="mt-6">
-              <h3 className="text-md font-medium text-gray-900 mb-4">Order Items</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Item
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantity
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rate
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {order.items.map((item: any) => (
-                      <tr key={item.name}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {item.item_name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.qty}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatNaira(item.rate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatNaira(item.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="bg-gray-50">
-                      <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                        Total:
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {formatNaira(order.grand_total)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Related Documents */}
-            {(deliveryNotes.length > 0 || invoices.length > 0 || attachments.length > 0) && (
-              <div className="mt-8 border-t border-gray-200 pt-4">
-                <h3 className="text-md font-medium text-gray-900 mb-4">Related Documents</h3>
-                
-                {deliveryNotes.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Delivery Notes</h4>
-                    <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
-                      {uniqueDeliveryNotes.map((note: any) => (
-                        <li key={note.name} className="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
-                          <div className="w-0 flex-1 flex items-center">
-                            <span className="ml-2 flex-1 w-0 truncate">{note.name}</span>
-                          </div>
-                          <div className="ml-4 flex-shrink-0">
-                            {Number(note.docstatus) === 1 && (
-                              <button
-                                onClick={() => handleDownloadDeliveryNote(note.name)}
-                                disabled={downloadingDeliveryId === note.name}
-                                className="text-blue-600 hover:text-blue-500 ml-4"
-                              >
-                                {downloadingDeliveryId === note.name ? 'Downloading...' : 'Download PDF'}
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                
-                {uniqueInvoices.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Invoices</h4>
-                    <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
-                      {uniqueInvoices.map((invoice: any) => (
-                        <li key={invoice.name} className="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
-                          <div className="w-0 flex-1 flex items-center">
-                            <span className="ml-2 flex-1 w-0 truncate">{invoice.name}</span>
-                          </div>
-                          <div className="ml-4 flex-shrink-0">
-                            {Number(invoice.docstatus) === 1 && (
-                              <button
-                                onClick={() => handleDownloadInvoice(invoice.name)}
-                                disabled={downloadingInvoiceId === invoice.name}
-                                className="text-blue-600 hover:text-blue-500"
-                              >
-                                {downloadingInvoiceId === invoice.name ? 'Downloading...' : 'Download PDF'}
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {attachments.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Attachments</h4>
-                    <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
-                      {attachments.map((file: any) => (
-                        <li key={file.name} className="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
-                          <div className="w-0 flex-1 flex items-center">
-                            <span className="ml-2 flex-1 w-0 truncate">{file.file_name}</span>
-                          </div>
-                          <div className="ml-4 flex-shrink-0">
-                            <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500">Download</a>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="card">
-            <p className="text-gray-500">Order not found.</p>
           </div>
         )}
       </div>
-    </Layout>
+
+      {isLoading ? (
+        <div className="flex justify-center">
+          <Loader className="animate-spin rounded-full h-[calc(100vh/3)]" />
+        </div>
+      ) : order ? (
+        <div className="grid gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Order Timeline */}
+              <div className="card">
+                <h3 className="mb-6">Order Status</h3>
+                <OrderTimeline currentStatus={order.status} order={order} />
+              </div>
+            </div>
+
+            <div className="lg:col-span-1 space-y-6">
+              {/* Order Information */}
+              <div className="card">
+                <h3 className="mb-6">Order Information</h3>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-6">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                      <Package className="w-5 h-5 text-[#D4AF37]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-muted-foreground">
+                        Order Date
+                      </p>
+                      <p>{formatDateTime(order.transaction_date)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-5 h-5 text-[#D4AF37]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-muted-foreground">
+                        Delivery Date
+                      </p>
+                      <p>{formatDateTime(order.delivery_date)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 sm:col-span-2 lg:col-span-1">
+                    <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-5 h-5 text-[#D4AF37]" />
+                    </div>
+                    <div className="flex-1 min-w-0 text-[15px]">
+                      <p className="text-sm text-muted-foreground">
+                        Warehouse
+                      </p>
+                      <p className="break-words">{order.set_warehouse}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-6">
+            {/* Order Items */}
+            <div className="card">
+              <h3 className="mb-6">Order Items</h3>
+              <div className="overflow-x-auto -mx-6 px-6">
+                <table className="w-full">
+                  <thead className="border-b border-border hidden sm:table-header-group">
+                    <tr>
+                      <th className="text-left font-medium pb-3">
+                        Product
+                      </th>
+                      <th className="pb-3 text-center font-medium">
+                        Qty
+                      </th>
+                      <th className="pb-3 text-center font-medium hidden md:table-cell">
+                        Rate
+                      </th>
+                      <th className="pb-3 text-right font-medium">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.items.map((item: any) => (
+                      <tr key={item.name} className="border-b border-border last:border-0 text-left">
+                        <td className="py-3">
+                          <div className="flex items-end justify-between">
+                            <p>{item.item_name}</p>
+                            <p className="text-xs sm:hidden text-muted-foreground whitespace-nowrap">
+                              x {item.qty}
+                            </p>
+                          </div>
+                          <div className="flex items-baseline justify-between mt-1">
+                            <p className="text-xs text-muted-foreground md:hidden">{formatNaira(item.rate)}</p>
+                            <p className="text-muted-foreground sm:hidden">{formatNaira(item.amount)}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 text-center hidden sm:table-cell">{item.qty}</td>
+                        <td className="py-3 text-right hidden md:table-cell">{formatNaira(item.rate)}</td>
+                        <td className="py-3 text-right hidden sm:table-cell">{formatNaira(item.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t border-foreground">
+                    <tr>
+                      <td colSpan={2} className="pt-4 text-left max-sm:hidden md:hidden">
+                        <h4>Total</h4>
+                      </td>
+                      <td colSpan={3} className="pt-4 text-left hidden md:table-cell">
+                        <h4>Total Amount</h4>
+                      </td>
+                      <td className="pt-4 text-right flex items-center justify-between sm:justify-end gap-1.5">
+                        <h4 className="sm:hidden">Total:</h4>
+                        <h4 className="text-primary font-medium">
+                          {formatNaira(order.grand_total)}
+                        </h4>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-6">
+              {/* Related Documents */}
+              {(deliveryNotes.length > 0 || invoices.length > 0 || attachments.length > 0) && (
+                <div className="card">
+                  <h3 className="mb-4">Related Documents</h3>
+  
+                  {/* Delivery Notes */}
+                  {deliveryNotes.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="mb-4">Delivery Notes</h4>
+                      <div className="space-y-3">
+                        {uniqueDeliveryNotes.map((note) => (
+                          <div
+                            key={note.name}
+                            className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-5 h-5 text-[#D4AF37]" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate">{note.name}</p>
+                                <p className="text-muted-foreground" style={{ fontSize: '12px' }}>
+                                  uploaded {formatDateTime(note?.posting_date)}
+                                </p>
+                              </div>
+                            </div>
+                            {/* <Button variant="ghost" size="sm" className="cursor-pointer flex-shrink-0">
+                              <Download className="w-4 h-4" />
+                            </Button> */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="cursor-pointer flex-shrink-0"
+                              onClick={() => handleDownloadDeliveryNote(note.name)}
+                              disabled={downloadingDeliveryId === note.name}
+                            >
+                              {downloadingDeliveryId === note.name ? (
+                                <Loader className="animate-spin w-4 h-4" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Invoices */}
+                  {uniqueInvoices.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="mb-4">Invoices</h4>
+                      <div className="space-y-3">
+                        {uniqueInvoices.map((invoice) => (
+                          <div
+                            key={invoice.name}
+                            className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-5 h-5 text-[#D4AF37]" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate">{invoice.name}</p>
+                                <p className="text-muted-foreground" style={{ fontSize: '12px' }}>
+                                  uploaded {formatDateTime(invoice?.posting_date)}
+                                </p>
+                              </div>
+                            </div>
+                            {/* <Button variant="ghost" size="sm" className="cursor-pointer flex-shrink-0">
+                              <Download className="w-4 h-4" />
+                            </Button> */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="cursor-pointer flex-shrink-0"
+                              onClick={() => handleDownloadInvoice(invoice.name)}
+                              disabled={downloadingInvoiceId === invoice.name}
+                            >
+                              {downloadingInvoiceId === invoice.name ? (
+                                <Loader className="animate-spin w-4 h-4" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Attachments */}
+                  {attachments.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="mb-4">Attachments</h4>
+                      <div className="space-y-3">
+                        {attachments.map((file) => (
+                          <div
+                            key={file.name}
+                            className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-5 h-5 text-[#D4AF37]" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate">{file.name}</p>
+                                <p className="text-muted-foreground" style={{ fontSize: '12px' }}>
+                                  uploaded {formatDateTime(file.posting_date)}
+                                </p>
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="sm" className="cursor-pointer flex-shrink-0">
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            {/* <Button
+                              variant="ghost"
+                              size="sm"
+                              className="cursor-pointer flex-shrink-0"
+                              onClick={() => handleDownloadPdf(invoice.name)}
+                              disabled={downloadingId === invoice.name}
+                            >
+                              {downloadingId === invoice.name ? (
+                                <Loader className="animate-spin w-4 h-4" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </Button> */}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              {/* Order Summary Card */}
+              <div className="card bg-accent/30">
+                <h3 className="mb-4">Summary</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Items</span>
+                    <span>{order.items.reduce((sum: any, item: any) => sum + item.qty, 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatNaira(order.grand_total)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span>0.00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tax</span>
+                    <span>0.00</span>
+                  </div>
+                  <div className="border-t border-border pt-3 flex justify-between">
+                    <span style={{ fontWeight: 600 }}>Total</span>
+                    <span style={{ fontWeight: 600 }} className="text-[#D4AF37]">
+                      {formatNaira(order.grand_total)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="card">
+          <p className="text-gray-500">Order not found.</p>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,25 +1,41 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Layout } from '../components/layout/Layout';
 import useOrderStore from '../store/useOrderStore';
-import { getWarehouses, getItemPrices, findCustomerByPortalUser, uploadAndAttachFile, getPlants } from '../api/erpnextApi';
+import { Eye, Package, PackageIcon, Loader } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table';
 import useAuthStore from '../store/useAuthStore';
+import { getWarehouses } from '../api/erpnextApi';
 import { formatNaira } from '../utils/currency';
+import moment from 'moment';
+import DateRangeFilter from '../components/ui/DateRangeFilter';
 
-export default function Orders() {
+export function Orders() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { customerName } = useAuthStore();
   const { 
     selectedWarehouse, 
     items, 
     orders,
     setWarehouse, 
-    addItem, 
-    removeItem, 
-    updateItemQuantity,
-    submitOrder,
-    setPlant,
     fetchOrders,
+    isLoading,
+    moreItemAvailable,
     page,
     pageSize,
     setPage,
@@ -31,24 +47,15 @@ export default function Orders() {
     setSort,
     fromDate,
     toDate,
+    status,
+    setStatus,
     setDateRange
   } = useOrderStore();
   
   const [warehouses, setWarehouses] = useState<any[]>([]);
-  const [availableItems, setAvailableItems] = useState<any[]>([]);
-  const [plants, setPlants] = useState<any[]>([]);
-  const [selectedPlant, setSelectedPlant] = useState<string>('');
-  const [selectedItem, setSelectedItem] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState(0);
+  const [warehouseQuery, setWarehouseQuery] = useState('');
+  const [isLoading2, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
-  const [customerName, setCustomerName] = useState<string>('');
-
-  // Calculate total
-  const total = items.reduce((sum, item) => sum + item.amount, 0);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -62,25 +69,10 @@ export default function Orders() {
         // Auto-select the first warehouse if none selected
         if (warehousesList.length > 0 && !selectedWarehouse) {
           setWarehouse(warehousesList[0].name);
+          setWarehouseQuery(warehousesList[0].warehouse_name ?? warehousesList[0].name);
         }
 
-        // Fetch plants
-        const plantsResponse = await getPlants();
-        const plantList = plantsResponse.data || [];
-        setPlants(plantList);
-        if (plantList.length > 0 && !selectedPlant) {
-          setSelectedPlant(plantList[0].name);
-          setPlant(plantList[0].name);
-        }
-
-        // Fetch existing orders list for the mapped customer
-        let customerDoc: any = null;
-        if (user) {
-          customerDoc = await findCustomerByPortalUser(user);
-        }
-        const mappedName = (customerDoc as any)?.name || user;
-        setCustomerName(mappedName);
-        await fetchOrders(mappedName);
+        if (customerName) await fetchOrders(customerName);
       } catch (error) {
         console.error('Error fetching initial data:', error);
         setError('Failed to load data. Please try again.');
@@ -92,37 +84,23 @@ export default function Orders() {
     fetchInitialData();
   }, []);
 
+  // Debounced server-side search for warehouses
   useEffect(() => {
-    const fetchItems = async () => {
-      if (!selectedWarehouse) return;
-      
-      setIsLoading(true);
+    const handler = setTimeout(async () => {
       try {
-        // Use selected Location (Warehouse) as Item Price price_list filter
-        const pricesResponse = await getItemPrices(selectedWarehouse, undefined, undefined, undefined, 50);
-        const prices = pricesResponse.data || [];
-        const normalized = prices.map((p: any) => ({
-          item_code: p.item_code,
-          item_name: p.item_name,
-          price: p.price_list_rate,
-          currency: p.currency,
-          price_list: p.price_list,
-          valid_from: p.valid_from,
-          valid_upto: p.valid_upto
-        }));
-        setAvailableItems(normalized);
-      } catch (error) {
-        console.error('Error fetching items:', error);
-        setError('Failed to load items. Please try again.');
-      } finally {
-        setIsLoading(false);
+        const q = warehouseQuery.trim();
+        const filters = q
+          ? JSON.stringify([["disabled","=",0],["warehouse_name","like", `%${q}%`]])
+          : undefined;
+        const resp = await getWarehouses(filters, undefined, 20, 0);
+        const list = resp?.data ?? resp ?? [];
+        setWarehouses(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.error('Error searching warehouses:', err);
       }
-    };
-
-    if (selectedWarehouse) {
-      fetchItems();
-    }
-  }, [selectedWarehouse]);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [warehouseQuery]);
 
   // Re-fetch orders when list controls change
   useEffect(() => {
@@ -135,464 +113,143 @@ export default function Orders() {
       }
     };
     run();
-  }, [customerName, page, pageSize, search, sortBy, sortOrder, fromDate, toDate]);
+  }, [customerName, page, pageSize, search, sortBy, sortOrder, fromDate, toDate, status]);
 
-  const handleWarehouseChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setWarehouse(e.target.value);
+  const getStatusBadge = (docstatus: number) => {
+    const statusMap: Record<number, { label: string; className: string }> = {
+      0: { label: 'Draft', className: 'badge-warning' },
+      1: { label: 'Approved', className: 'badge-success' },
+      2: { label: 'Cancelled', className: 'badge-error' },
+    };
+    const config = statusMap[docstatus] || statusMap[1];
+    return <span className={config.className}>{config.label}</span>;
   };
 
-  const handlePlantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedPlant(e.target.value);
-    setPlant(e.target.value);
-  };
-
-
-  const handleAddItem = () => {
-    if (!selectedItem || quantity <= 0) {
-      setError('Please select an item and enter a valid quantity');
-      return;
-    }
-    
-    const item = availableItems.find((i: any) => i.item_code === selectedItem);
-    if (!item) return;
-    
-    addItem({
-      item_code: item.item_code,
-      item_name: item.item_name,
-      qty: quantity,
-      rate: item.price,
-      amount: quantity * item.price
-    });
-    
-    // Reset selection
-    setSelectedItem('');
-    setQuantity(1);
-    setError('');
-  };
-
-  const handleRemoveItem = (itemCode: string) => {
-    removeItem(itemCode);
-  };
-
-  const handleQuantityChange = (itemCode: string, newQty: number) => {
-    if (newQty <= 0) return;
-    updateItemQuantity(itemCode, newQty);
-  };
-
-
-  const handleSubmitOrder = async () => {
-    if (!selectedWarehouse || items.length === 0) {
-      setError('Please select a location and add at least one item');
-      return;
-    }
-    if (!paymentReceipt) {
-      setError('Please upload a payment receipt');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Map username to Customer via portal_user child table
-      let customerDoc: any = null;
-      if (user) {
-        customerDoc = await findCustomerByPortalUser(user);
-      }
-      const customerName = (customerDoc as any)?.name || user;
-
-      const orderData = {
-        customer: customerName,
-      };
-
-      const result = await submitOrder(orderData);
-      if (result) {
-        // Attach receipt to Sales Order
-        try {
-          await uploadAndAttachFile(paymentReceipt, 'Sales Order', result.name);
-        } catch (attachErr) {
-          console.warn('Receipt attachment failed:', attachErr);
-        }
-        setSuccess('Order created successfully!');
-        setTimeout(() => {
-          navigate(`/orders/${result.name}`);
-        }, 1000);
-      }
-    } catch (error) {
-      console.error('Error creating order:', error);
-      setError('Failed to create order. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleCreateOrder = () => {
+    navigate('/orders/create');
   };
 
   return (
-    <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Orders</h1>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => setStep(step === 1 ? 0 : 1)}
-          >
-            {step === 1 ? 'View Orders' : 'Create New Order'}
-          </button>
+    <Layout
+      onCreateOrder={handleCreateOrder}
+      showFab={true}
+    >
+      <div className="p-3 xs:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 rounded-lg bg-accent flex items-center justify-center">
+                <PackageIcon className="w-8 h-8 text-[#D4AF37]" />
+              </div>
+              <div>
+                <h1 className="mb-1">Orders</h1>
+                <p className="text-muted-foreground" style={{ fontSize: '16px', lineHeight: '24px' }}>
+                  Manage and track your order requests
+                </p>
+              </div>
+            </div>
+            <Link to="/orders/create" className="flex-shrink-0">
+              <button className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
+                <Package className="w-5 h-5" />
+                <span>Create Order</span>
+              </button>
+            </Link>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Search by Order ID"
+                className="input-field pl-10"
+                value={search || ''}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <DateRangeFilter
+                start={fromDate}
+                end={toDate}
+                onChange={(start, end) => setDateRange(start, end)}
+              />
+            </div>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-full md:w-52 h-[46px]!">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="0">Draft</SelectItem>
+                <SelectItem value="1">Approved</SelectItem>
+                {/* <SelectItem value="2">Cancelled</SelectItem> */}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {error && (
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="text-sm text-red-700">{error}</div>
+        {/* Orders Table */}
+        <div className="card overflow-hidden max-xs:p-4!">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead className="hidden md:table-cell">Date</TableHead>
+                  <TableHead className="hidden xs:table-cell text-right">Total</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center">Status</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => (
+                  <TableRow key={order.name} className="hover:bg-muted/50 transition-colors">
+                    <TableCell>
+                      <Link to={`/orders/${order.name}`} state={{ from: '/orders' }} className="text-[#D4AF37] hover:text-[#B9972C] transition-colors">
+                        {order.name}
+                      </Link>
+                      <div className="text-xs md:hidden text-muted-foreground mt-1">
+                        {new Date(order.creation).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">{order.creation ? moment(order.creation).format('lll') : moment(order.transaction_date).format('lll')}</TableCell>
+                    <TableCell className="hidden xs:table-cell text-right">{formatNaira(order.grand_total || 0)}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-center">{getStatusBadge(order.docstatus)}</TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Link to={`/orders/${order.name}`} state={{ from: '/orders' }}>
+                          <Button variant="ghost" size="sm" aria-label="View order">
+                            <Eye className="w-4 h-4" /> 
+                          </Button>
+                        </Link>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        )}
 
-        {success && (
-          <div className="rounded-md bg-green-50 p-4">
-            <div className="text-sm text-green-700">{success}</div>
-          </div>
-        )}
-
-        <div className="card">
+          {/* Pagination and Loading */}
           {isLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+            <div className="flex justify-center py-8">
+              <Loader className="animate-spin rounded-full h-10" />
             </div>
-          ) : (
-            <>
-              {/* Orders List View */}
-              {step === 0 && (
-                <div className="space-y-6">
-                  {/* List controls */}
-                  <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700">Search</label>
-                      <input
-                        type="text"
-                        className="input-field mt-1"
-                        placeholder="Search by Order ID"
-                        value={search || ''}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700">From Date</label>
-                      <input
-                        type="date"
-                        className="input-field mt-1"
-                        value={fromDate || ''}
-                        onChange={(e) => setDateRange(e.target.value || undefined, toDate)}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700">To Date</label>
-                      <input
-                        type="date"
-                        className="input-field mt-1"
-                        value={toDate || ''}
-                        onChange={(e) => setDateRange(fromDate, e.target.value || undefined)}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700">Sort By</label>
-                      <div className="flex gap-2 mt-1">
-                        <select
-                          className="input-field"
-                          value={sortBy}
-                          onChange={(e) => setSort(e.target.value, (sortOrder ?? 'desc'))}
-                        >
-                          <option value="creation">Created At</option>
-                          <option value="transaction_date">Transaction Date</option>
-                        </select>
-                        <button
-                          type="button"
-                          className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                          onClick={() => setSort((sortBy ?? 'creation'), ((sortOrder ?? 'desc') === 'desc' ? 'asc' : 'desc'))}
-                        >
-                          {sortOrder === 'desc' ? 'Desc' : 'Asc'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="w-28">
-                      <label className="block text-sm font-medium text-gray-700">Page Size</label>
-                      <select
-                        className="input-field mt-1"
-                        value={pageSize}
-                        onChange={(e) => setPageSize(Number(e.target.value))}
-                      >
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={50}>50</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                          <th className="px-6 py-3"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {(orders || []).map((o: any) => (
-                          <tr key={o.name} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/orders/${o.name}`)}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800">{o.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{o.creation ? new Date(o.creation).toLocaleString() : o.transaction_date}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{o.status}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatNaira(o.grand_total || 0)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button type="button" className="text-blue-600 hover:text-blue-800" onClick={(e) => { e.stopPropagation(); navigate(`/orders/${o.name}`); }}>View</button>
-                            </td>
-                          </tr>
-                        ))}
-                        {(!orders || orders.length === 0) && (
-                          <tr>
-                            <td colSpan={5} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">No orders found.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  {/* Pagination */}
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">Page {page}</div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                        onClick={() => setPage(Math.max(1, (page ?? 1) - 1))}
-                        disabled={(page ?? 1) === 1}
-                      >
-                        Previous
-                      </button>
-                      <button
-                        type="button"
-                        className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                        onClick={() => setPage((page ?? 1) + 1)}
-                        disabled={(orders || []).length < (pageSize ?? 10)}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Single Step: Select Location & Items + Receipt */}
-              {step === 1 && (
-                <div className="space-y-6">
-                  <div>
-                    <label htmlFor="warehouse" className="block text-sm font-medium text-gray-700">
-                      Select Location
-                    </label>
-                    <select
-                      id="warehouse"
-                      name="warehouse"
-                      className="input-field mt-1"
-                      value={selectedWarehouse || ''}
-                      onChange={handleWarehouseChange}
-                    >
-                      <option value="">Select a location</option>
-                      {warehouses.map((warehouse: any) => (
-                        <option key={warehouse.name} value={warehouse.name}>
-                          {warehouse.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {selectedWarehouse && (
-                    <>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div>
-                          <label htmlFor="item" className="block text-sm font-medium text-gray-700">
-                            Select Item
-                          </label>
-                          <select
-                            id="item"
-                            name="item"
-                            className="input-field mt-1"
-                            value={selectedItem}
-                            onChange={(e) => setSelectedItem(e.target.value)}
-                          >
-                            <option value="">Select an item</option>
-                            {availableItems.map((item: any) => (
-                              <option key={item.item_code} value={item.item_code}>
-                                {item.item_name} ({formatNaira(item.price)})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        <div>
-                          <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
-                            Quantity
-                          </label>
-                          <input
-                            type="number"
-                            id="quantity"
-                            name="quantity"
-                            min="1"
-                            className="input-field mt-1"
-                            value={quantity}
-                            onChange={(e) => setQuantity(parseInt(e.target.value))}
-                          />
-                        </div>
-                        
-                        <div>
-                          <label htmlFor="plant" className="block text-sm font-medium text-gray-700">
-                            Select Plant
-                          </label>
-                          <select
-                            id="plant"
-                            name="plant"
-                            className="input-field mt-1"
-                            value={selectedPlant}
-                            onChange={handlePlantChange}
-                          >
-                            <option value="">Select a plant</option>
-                            {plants.map((p: any) => (
-                              <option key={p.name} value={p.name}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="flex items-end">
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={handleAddItem}
-                          >
-                            Add Item
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Item list */}
-                      {items.length > 0 && (
-                        <div className="mt-6">
-                          <h3 className="text-lg font-medium text-gray-900">Order Items</h3>
-                          <div className="mt-4 overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Item
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Price (₦)
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Quantity
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Total
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {items.map((item) => (
-                                  <tr key={item.item_code}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                      {item.item_name}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {formatNaira(item.rate)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      <div className="flex items-center">
-                                        <button
-                                          type="button"
-                                          className="p-1 text-gray-500 hover:text-gray-700"
-                                          onClick={() => handleQuantityChange(item.item_code, item.qty - 1)}
-                                        >
-                                          -
-                                        </button>
-                                        <span className="mx-2">{item.qty}</span>
-                                        <button
-                                          type="button"
-                                          className="p-1 text-gray-500 hover:text-gray-700"
-                                          onClick={() => handleQuantityChange(item.item_code, item.qty + 1)}
-                                        >
-                                          +
-                                        </button>
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {formatNaira(item.amount)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      <button
-                                        type="button"
-                                        className="text-red-600 hover:text-red-800"
-                                        onClick={() => handleRemoveItem(item.item_code)}
-                                      >
-                                        Remove
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                                <tr className="bg-gray-50">
-                                  <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                                    Total:
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {formatNaira(total)}
-                                  </td>
-                                  <td></td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                      {/* Payment receipt upload merged into this step */}
-                      <div className="mt-6">
-                        <h3 className="text-lg font-medium text-gray-900">Payment Receipt</h3>
-                        <p className="mt-1 text-sm text-gray-500">Total amount: {formatNaira(total)}</p>
-                        <label className="block text-sm font-medium text-gray-700 mt-2">Upload Payment Receipt</label>
-                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                          <div className="space-y-1 text-center">
-                            <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            <div className="flex text-sm text-gray-600">
-                              <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                                <span>Upload a file</span>
-                                <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={(e) => setPaymentReceipt(e.target.files?.[0] || null)} />
-                              </label>
-                              <p className="pl-1">or drag and drop</p>
-                            </div>
-                            <p className="text-xs text-gray-500">PNG, JPG, PDF up to 10MB</p>
-                          </div>
-                        </div>
-                        {paymentReceipt && (
-                          <p className="mt-2 text-sm text-gray-500">Selected file: {paymentReceipt.name}</p>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-              {/* Navigation buttons */}
-              {step === 1 && (
-                <div className="mt-8 flex justify-between">
-                  <div></div>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={handleSubmitOrder}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Processing...' : 'Place Order'}
-                  </button>
-                </div>
-              )}
-            </>
+          ) : moreItemAvailable ? (
+            <div className="flex p-5">
+              <button
+                className="cursor-pointer btn-secondary px-3 py-2 mx-auto"
+                onClick={() => setPage((page ?? 1) + 1)}
+              >Load more</button>
+            </div>
+          ) : !moreItemAvailable && !orders?.length && (
+            <div className="flex justify-center py-4">
+              <p className="text-muted-foreground">
+                No orders found.
+                {/* No orders found matching your search criteria */}
+              </p>
+            </div>
           )}
         </div>
       </div>

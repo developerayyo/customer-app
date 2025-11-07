@@ -1,212 +1,208 @@
 import { useState } from 'react';
-import Layout from '../components/Layout';
-import { submitComplaint, uploadFile, findCustomerByPortalUser } from '../api/erpnextApi';
-import useAuthStore from '../store/useAuthStore';
+import { Layout } from '../components/layout/Layout';
+import { MessageSquare, Send, Plus, MessageSquareIcon } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
-export default function Complaints() {
-  const { user } = useAuthStore();
-  const [formData, setFormData] = useState({
-    subject: '',
-    complaint_type: 'Product',
-    details: '',
-    priority: 'Medium',
-  });
-  const [file, setFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+export function Complaints() {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [subject, setSubject] = useState('');
+  const [category, setCategory] = useState('');
+  const [description, setDescription] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const complaints = [
+    {
+      id: 'COMP-001',
+      subject: 'Delayed Delivery',
+      category: 'Delivery',
+      date: '2025-10-25',
+      status: 'open',
+      orderId: 'ORD-003',
+    },
+    {
+      id: 'COMP-002',
+      subject: 'Product Quality Issue',
+      category: 'Quality',
+      date: '2025-10-20',
+      status: 'in-progress',
+      orderId: 'ORD-001',
+    },
+    {
+      id: 'COMP-003',
+      subject: 'Incorrect Invoice Amount',
+      category: 'Billing',
+      date: '2025-10-15',
+      status: 'resolved',
+      orderId: 'ORD-002',
+    },
+  ];
+
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; className: string }> = {
+      open: { label: 'Open', className: 'badge-warning' },
+      'in-progress': { label: 'In Progress', className: 'badge-gold' },
+      resolved: { label: 'Resolved', className: 'badge-success' },
+    };
+    const config = statusMap[status] || statusMap.open;
+    return <span className={config.className}>{config.label}</span>;
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitComplaint = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setError('');
-    
-    try {
-      let fileUrl = '';
-    
-      // Resolve customer under the hood
-      let customerName = '';
-      try {
-        if (user) {
-          const mapped = await findCustomerByPortalUser(user);
-          customerName = (mapped as any)?.name || user;
-        }
-      } catch {}
-      
-      // Upload file if selected
-      if (file) {
-        const fileResponse = await uploadFile(file);
-        fileUrl = fileResponse.data.file_url;
-      }
-      
-      // Submit complaint
-      await submitComplaint({
-        doctype: 'Customer Complaints',
-        customer: customerName,
-        subject: formData.subject,
-        complaint_type: formData.complaint_type,
-        details: formData.details,
-        priority: formData.priority,
-        attachment: fileUrl,
-      });
-      
-      // Reset form and show success message
-      setFormData({
-        subject: '',
-        complaint_type: 'Product',
-        details: '',
-        priority: 'Medium',
-      });
-      setFile(null);
-      setSuccess(true);
-      
-      // Clear success message after 5 seconds
-      setTimeout(() => {
-        setSuccess(false);
-      }, 5000);
-    } catch (err) {
-      console.error('Error submitting complaint:', err);
-      setError('Failed to submit complaint. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    console.log({ subject, category, description });
+    setShowCreateDialog(false);
+    setSubject('');
+    setCategory('');
+    setDescription('');
   };
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Submit Complaint</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            We're sorry you're experiencing an issue. Please provide details so we can help resolve it.
-          </p>
-        </div>
-
-        {error && (
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="text-sm text-red-700">{error}</div>
-          </div>
-        )}
-
-        {success && (
-          <div className="rounded-md bg-green-50 p-4">
-            <div className="text-sm text-green-700">
-              Your complaint has been submitted successfully. Our team will review it and get back to you soon.
-            </div>
-          </div>
-        )}
-
-        <div className="card">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
-                Subject
-              </label>
-              <input
-                type="text"
-                id="subject"
-                name="subject"
-                required
-                value={formData.subject}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="Brief description of your complaint"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="complaint_type" className="block text-sm font-medium text-gray-700 mb-1">
-                Complaint Type
-              </label>
-              <select
-                id="complaint_type"
-                name="complaint_type"
-                value={formData.complaint_type}
-                onChange={handleChange}
-                className="input-field"
-              >
-                <option value="Product">Product</option>
-                <option value="Service">Service</option>
-                <option value="Delivery">Delivery</option>
-                <option value="Billing">Billing</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
-                Priority
-              </label>
-              <select
-                id="priority"
-                name="priority"
-                value={formData.priority}
-                onChange={handleChange}
-                className="input-field"
-              >
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-                <option value="Urgent">Urgent</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="details" className="block text-sm font-medium text-gray-700 mb-1">
-                Details
-              </label>
-              <textarea
-                id="details"
-                name="details"
-                rows={4}
-                required
-                value={formData.details}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="Please provide detailed information about your complaint"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="file" className="block text-sm font-medium text-gray-700 mb-1">
-                Attachment (Optional)
-              </label>
-              <input
-                type="file"
-                id="file"
-                name="file"
-                onChange={handleFileChange}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {file && (
-                <p className="mt-2 text-sm text-gray-500">
-                  Selected file: {file.name}
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 rounded-lg bg-accent flex items-center justify-center">
+                <MessageSquareIcon className="w-8 h-8 text-[#D4AF37]" />
+              </div>
+              <div>
+                <h1 className="mb-1">Complaints</h1>
+                <p className="text-muted-foreground">
+                  Submit and track complaint tickets
                 </p>
-              )}
+              </div>
             </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn-primary w-full"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Complaint'}
-              </button>
-            </div>
-          </form>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <button className="btn-primary flex items-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  New Complaint
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Submit Complaint</DialogTitle>
+                  <DialogDescription>
+                    Describe the issue you're experiencing
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmitComplaint} className="space-y-4 mt-4">
+                  <div>
+                    <label className="block mb-2">Subject</label>
+                    <input
+                      type="text"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      placeholder="Brief summary of the issue"
+                      className="input-field"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2">Category</label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="delivery">Delivery</SelectItem>
+                        <SelectItem value="quality">Product Quality</SelectItem>
+                        <SelectItem value="billing">Billing</SelectItem>
+                        <SelectItem value="service">Customer Service</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block mb-2">Description</label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Provide detailed information about your complaint"
+                      className="input-field min-h-32 resize-none"
+                      required
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateDialog(false)}
+                      className="btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn-primary flex items-center gap-2">
+                      <Send className="w-4 h-4" />
+                      Submit
+                    </button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
+
+        {/* Complaints List */}
+        <div className="space-y-4">
+          {complaints.map((complaint) => (
+            <div key={complaint.id} className="card hover:shadow-lg transition-shadow cursor-pointer">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                    <MessageSquare className="w-5 h-5 text-[#D4AF37]" />
+                  </div>
+                  <div>
+                    <h3 className="mb-1">{complaint.subject}</h3>
+                    <p className="text-muted-foreground" style={{ fontSize: '14px' }}>
+                      Ticket #{complaint.id} • {complaint.category}
+                    </p>
+                  </div>
+                </div>
+                {getStatusBadge(complaint.status)}
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                <div>
+                  <p className="text-muted-foreground" style={{ fontSize: '12px' }}>
+                    Related Order
+                  </p>
+                  <p className="mt-1 text-[#D4AF37]">{complaint.orderId}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground" style={{ fontSize: '12px' }}>
+                    Submitted
+                  </p>
+                  <p className="mt-1">{new Date(complaint.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {complaints.length === 0 && (
+          <div className="card text-center py-12">
+            <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="mb-2">No complaints submitted</h3>
+            <p className="text-muted-foreground">
+              You haven't submitted any complaints yet
+            </p>
+          </div>
+        )}
       </div>
     </Layout>
   );

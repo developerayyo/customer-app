@@ -1,19 +1,20 @@
+import { Routes, Route, Navigate, BrowserRouter } from 'react-router-dom';
+import { Dashboard } from './pages/Dashboard';
+import { Orders } from './pages/Orders';
+import { CreateOrder } from './pages/CreateOrder';
+import { OrderDetails } from './pages/OrderDetails';
+import { Payments } from './pages/Payments';
+import { Invoices } from './pages/Invoices';
+import { InvoiceDetails } from './pages/InvoiceDetails';
+import { PriceList } from './pages/PriceList';
+import { Complaints } from './pages/Complaints';
+import { Feedback } from './pages/Feedback';
+import { News } from './pages/News';
+import { Settings } from './pages/Settings';
+import { ThemeProvider } from './lib/ThemeContext';
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './store/useAuthStore';
-
-// Pages
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Orders from './pages/Orders';
-import OrderDetails from './pages/OrderDetails';
-import Payments from './pages/Payments';
-import Invoices from './pages/Invoices';
-import Complaints from './pages/Complaints';
-import Feedback from './pages/Feedback';
-import News from './pages/News';
-import PriceList from './pages/PriceList';
-import Settings from './pages/Settings';
 import ShareTarget from './pages/ShareTarget';
 import OpenFile from './pages/OpenFile';
 
@@ -32,7 +33,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-function App() {
+function AppContent() {
   return (
     <BrowserRouter>
       <Routes>
@@ -47,6 +48,11 @@ function App() {
         <Route path="/orders" element={
           <ProtectedRoute>
             <Orders />
+          </ProtectedRoute>
+        } />
+        <Route path="/orders/create" element={
+          <ProtectedRoute>
+            <CreateOrder />
           </ProtectedRoute>
         } />
         
@@ -65,6 +71,12 @@ function App() {
         <Route path="/invoices" element={
           <ProtectedRoute>
             <Invoices />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/invoices/:id" element={
+          <ProtectedRoute>
+            <InvoiceDetails />
           </ProtectedRoute>
         } />
         
@@ -116,4 +128,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}

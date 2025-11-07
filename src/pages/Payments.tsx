@@ -1,11 +1,59 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
-import { getPaymentEntries, downloadPaymentEntryPdf, findCustomerByPortalUser } from '../api/erpnextApi';
+import { Layout } from '../components/layout/Layout';
+import { getPaymentEntries, downloadPaymentEntryPdf } from '../api/erpnextApi';
 import useAuthStore from '../store/useAuthStore';
 import { formatNaira } from '../utils/currency';
 
-export default function Payments() {
-  const { user } = useAuthStore();
+import { Download, CreditCard, CheckCircle, Clock, CreditCardIcon, Loader } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+
+export function Payments() {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [relatedOrder, setRelatedOrder] = useState('');
+
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; className: string; icon: any }> = {
+      completed: { label: 'Completed', className: 'badge-success', icon: CheckCircle },
+      pending: { label: 'Pending', className: 'badge-warning', icon: Clock },
+      failed: { label: 'Failed', className: 'badge-error', icon: CreditCard },
+    };
+    const config = statusMap[status] || statusMap.pending;
+    const Icon = config.icon;
+    return (
+      <span className={`${config.className} self-start flex items-center gap-1 text-xs`}>
+        <Icon className="w-3 h-3" />
+        {config.label}
+      </span>
+    );
+  };
+
+  const handleCreatePayment = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    console.log({ paymentAmount, paymentMethod, relatedOrder });
+    setShowCreateDialog(false);
+    setPaymentAmount('');
+    setPaymentMethod('');
+    setRelatedOrder('');
+  };
+
+  const { customerName } = useAuthStore();
   const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -17,20 +65,16 @@ export default function Payments() {
   const [sortBy, setSortBy] = useState<string>('creation');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
-
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [moreItemAvailable, setMoreItemAvailable] = useState(false);
+  
   useEffect(() => {
     const fetchPayments = async () => {
-      if (!user) return;
+      if (!customerName) return;
       setIsLoading(true);
       try {
-        let customerDoc: any = null;
-        try {
-          customerDoc = await findCustomerByPortalUser(user);
-        } catch {}
-        const mappedName = (customerDoc as any)?.name || user;
         // Fetch submitted Payment Entries for the mapped customer with filters/pagination
-        const rows = await getPaymentEntries(mappedName, {
+        const rows = await getPaymentEntries(customerName, {
           page,
           pageSize,
           sortBy,
@@ -40,7 +84,15 @@ export default function Payments() {
           toDate,
           docstatusIn: [1],
         });
-        setPayments(Array.isArray(rows) ? rows : []);
+
+        if (rows?.length < pageSize) setMoreItemAvailable(false);
+        else setMoreItemAvailable(true);
+
+        if (page === 1) {
+          setPayments(Array.isArray(rows) ? rows : []);
+        } else {
+          setPayments(prevPayments => [...prevPayments, ...(Array.isArray(rows) ? rows : [])]);
+        }
       } catch (err) {
         console.error('Error fetching payments:', err);
         setError('Failed to load payment history. Please try again.');
@@ -50,7 +102,7 @@ export default function Payments() {
     };
 
     fetchPayments();
-  }, [user, page, pageSize, sortBy, sortOrder, search, fromDate, toDate]);
+  }, [customerName, page, pageSize, sortBy, sortOrder, search, fromDate, toDate]);
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString();
   const formatCurrency = (amount: number) => formatNaira(amount);
@@ -79,196 +131,249 @@ export default function Payments() {
     }
   };
 
-  return (
-    <Layout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Payment History</h1>
 
-        {/* List controls */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">Search</label>
-            <input
-              type="text"
-              className="input-field mt-1"
-              placeholder="Search by Payment ID"
-              value={search}
-              onChange={(e) => {
-                setPage(1);
-                setSearch(e.target.value);
-              }}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">From Date</label>
-            <input
-              type="date"
-              className="input-field mt-1"
-              value={fromDate || ''}
-              onChange={(e) => {
-                setPage(1);
-                setFromDate(e.target.value || undefined);
-              }}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">To Date</label>
-            <input
-              type="date"
-              className="input-field mt-1"
-              value={toDate || ''}
-              onChange={(e) => {
-                setPage(1);
-                setToDate(e.target.value || undefined);
-              }}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">Sort By</label>
-            <div className="flex gap-2 mt-1">
-              <select
-                className="input-field"
-                value={sortBy}
-                onChange={(e) => {
-                  setPage(1);
-                  setSortBy(e.target.value);
-                }}
-              >
-                <option value="creation">Created At</option>
-                <option value="posting_date">Posting Date</option>
-              </select>
-              <button
-                type="button"
-                className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                onClick={() => {
-                  setPage(1);
-                  setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-                }}
-              >
-                {sortOrder === 'desc' ? 'Desc' : 'Asc'}
-              </button>
+  return (
+    <Layout
+      onCreatePayment={handleCreatePayment}
+      showFab={true}
+      fabAction={"payment"}
+    >
+      <div className="p-3 xs:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-10">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 rounded-lg bg-accent flex items-center justify-center">
+                <CreditCardIcon className="w-8 h-8 text-[#D4AF37]" />
+              </div>
+              <div>
+                <h1 className="mb-1">Payments</h1>
+                <p className="text-muted-foreground" style={{ fontSize: '16px', lineHeight: '24px' }}>
+                  Track and manage your payment transactions
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="w-28">
-            <label className="block text-sm font-medium text-gray-700">Page Size</label>
-            <select
-              className="input-field mt-1"
-              value={pageSize}
-              onChange={(e) => {
-                setPage(1);
-                setPageSize(Number(e.target.value));
-              }}
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <button className="btn-primary flex items-center justify-center gap-2 flex-shrink-0 w-full sm:w-auto">
+                  <CreditCard className="w-5 h-5" />
+                  <span>Create Payment</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create Payment</DialogTitle>
+                  <DialogDescription>
+                    Enter payment details to create a new transaction
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreatePayment} className="space-y-4 mt-4">
+                  <div>
+                    <label className="block mb-2">Related Order</label>
+                    <Select value={relatedOrder} onValueChange={setRelatedOrder}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select order" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ORD-001">ORD-001 - $2,450.00</SelectItem>
+                        <SelectItem value="ORD-002">ORD-002 - $1,820.00</SelectItem>
+                        <SelectItem value="ORD-003">ORD-003 - $3,125.00</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block mb-2">Amount</label>
+                    <input
+                      type="number"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      placeholder="0.00"
+                      step="0.01"
+                      className="input-field"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2">Payment Method</label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="credit-card">Credit Card</SelectItem>
+                        <SelectItem value="bank-transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="check">Check</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center justify-end gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateDialog(false)}
+                      className="btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn-primary">
+                      Create Payment
+                    </button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
-        
+
         {error && (
           <div className="rounded-md bg-red-50 p-4">
             <div className="text-sm text-red-700">{error}</div>
           </div>
         )}
-
-        {isLoading ? (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-          </div>
-        ) : payments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mode
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Reference
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Receipt
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {payments.map((payment) => (
-                  <tr key={payment.name} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                      {payment.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(payment.posting_date)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          
+        {/* Payment Cards */}
+        <div className="space-y-5">
+          {payments?.map((payment) => (
+            <div key={payment.name} className="card hover:shadow-lg transition-shadow">
+              <div className="flex flex-col md:flex-row md:items-end lg:items-start lg:justify-between gap-3 lg:gap-6">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col xs:flex-row xs:items-center gap-3 mb-4">
+                    <h3 className="flex-shrink-0">{payment.name}</h3>
+                    {getStatusBadge(payment.status)}
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-muted-foreground" style={{ fontSize: '12px', lineHeight: '18px' }}>
+                        Date
+                      </p>
+                      <p className="mt-1">{formatDate(payment.posting_date)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground" style={{ fontSize: '12px', lineHeight: '18px' }}>
+                        Method
+                      </p>
+                      <p className="mt-1">{payment.mode_of_payment}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground" style={{ fontSize: '12px', lineHeight: '18px' }}>
+                        Related Order(s)
+                      </p>
+                      <p className="mt-1">Nil</p>
+                      {/* <p className="mt-1 text-[#D4AF37] hover:text-[#B9972C] cursor-pointer transition-colors">{payment.orderId || 'Nil'}</p> */}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-row md:flex-col items-center md:items-end gap-4 justify-between md:justify-start">
+                  <div className="text-right">
+                    <p className="text-muted-foreground" style={{ fontSize: '12px', lineHeight: '18px' }}>
+                      Amount
+                    </p>
+                    <p style={{ fontSize: '24px', lineHeight: '32px', fontWeight: 600 }} className="text-[#D4AF37] mt-1">
                       {formatCurrency(payment.paid_amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {payment.mode_of_payment}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        {payment.status || 'Completed'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {payment.reference_no || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => handleDownloadReceipt(payment.name)}
-                        disabled={downloadingId === payment.name}
-                        className="text-blue-600 hover:text-blue-500"
-                      >
-                        {downloadingId === payment.name ? 'Downloading...' : 'Download PDF'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 flex-shrink-0"
+                    onClick={() => handleDownloadReceipt(payment.name)}
+                    disabled={downloadingId === payment.name}
+                  >
+                    {downloadingId === payment.name ? (
+                      <Loader className="animate-spin w-4 h-4" />
+                    ) : (
+                      <Download className="w-4 h-4"/>
+                    )}
+                    <span className="hidden sm:inline">Receipt</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pagination and Loading */}
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader className="animate-spin rounded-full h-10" />
           </div>
-        ) : (
-          <div className="text-center py-10">
-            <p className="text-gray-500">No payment records found.</p>
+        ) : moreItemAvailable ? (
+          <div className="flex p-5">
+            <button
+              className="cursor-pointer btn-secondary px-3 py-2 mx-auto"
+              onClick={() => setPage((page ?? 1) + 1)}
+            >Load more</button>
+          </div>
+        ) : !payments?.length && !isLoading && (
+          <div className="flex justify-center py-4">
+            <p className="text-muted-foreground">
+              No payment records found.
+            </p>
           </div>
         )}
 
         {/* Pagination */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">Page {page}</div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page === 1}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              onClick={() => setPage(page + 1)}
-              disabled={payments.length < pageSize}
-            >
-              Next
-            </button>
+        {/* {payments.length > 0 && !isLoading && (
+          <div className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-muted-foreground" style={{ fontSize: '14px' }}>
+              Page {page}
+            </p>
+            <div className="flex items-center gap-2">
+              <Select value={pageSize} onValueChange={setPageSize}>
+                <SelectTrigger className="h-[46px]!">
+                  <SelectValue />  
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                className="btn-secondary px-4 py-2 text-sm"
+                onClick={() => setPage(Math.max(1, (page ?? 1) - 1))}
+                disabled={(page ?? 1) === 1}
+              >Previous</button>
+              <button
+                type="button"
+                className="btn-secondary px-4 py-2 text-sm"
+                onClick={() => setPage((page ?? 1) + 1)}
+                disabled={(payments || []).length < (pageSize ?? 10)}
+              >Next</button>
+            </div>
           </div>
-        </div>
+        )} */}
+
+        {/* Summary */}
+        {/* <div className="card mt-10 bg-accent/30">
+          <h3 className="mb-6">Payment Summary</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-4 rounded-lg bg-card">
+              <p className="text-muted-foreground" style={{ fontSize: '14px' }}>
+                Total Paid
+              </p>
+              <p style={{ fontSize: '28px', lineHeight: '36px', fontWeight: 600 }} className="text-[#D4AF37] mt-2">
+                ${payments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+              </p>
+            </div>
+            <div className="p-4 rounded-lg bg-card">
+              <p className="text-muted-foreground" style={{ fontSize: '14px' }}>
+                Pending
+              </p>
+              <p style={{ fontSize: '28px', lineHeight: '36px', fontWeight: 600 }} className="text-yellow-600 dark:text-yellow-400 mt-2">
+                ${payments.filter((p) => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+              </p>
+            </div>
+            <div className="p-4 rounded-lg bg-card">
+              <p className="text-muted-foreground" style={{ fontSize: '14px' }}>
+                Transactions
+              </p>
+              <p style={{ fontSize: '28px', lineHeight: '36px', fontWeight: 600 }} className="mt-2">
+                {payments.length}
+              </p>
+            </div>
+          </div>
+        </div> */}
       </div>
     </Layout>
   );

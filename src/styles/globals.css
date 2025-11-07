@@ -1,0 +1,493 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+@plugin './hero.ts';
+@source '../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --text-base: 15px;
+  
+  /* Gold Color Palette */
+  --gold: #D4AF37;
+  --gold-deep: #B9972C;
+  --gold-light: #F7E8B0;
+  
+  /* Light Theme */
+  --background: #FAFAFA;
+  --foreground: #222222;
+  --card: #FFFFFF;
+  --card-foreground: #222222;
+  --popover: #FFFFFF;
+  --popover-foreground: #222222;
+  --primary: #D4AF37;
+  --primary-foreground: #222222;
+  --secondary: #F7E8B0;
+  --secondary-foreground: #222222;
+  --muted: #E0E0E0;
+  --muted-foreground: #555555;
+  --accent: #F7E8B0;
+  --accent-foreground: #222222;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: #E0E0E0;
+  --input: transparent;
+  --input-background: #FFFFFF;
+  --switch-background: #E0E0E0;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #D4AF37;
+  --chart-1: #D4AF37;
+  --chart-2: #B9972C;
+  --chart-3: #F7E8B0;
+  --chart-4: #555555;
+  --chart-5: #222222;
+  --radius: 0.75rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #222222;
+  --sidebar-primary: #D4AF37;
+  --sidebar-primary-foreground: #222222;
+  --sidebar-accent: #F7E8B0;
+  --sidebar-accent-foreground: #222222;
+  --sidebar-border: #E0E0E0;
+  --sidebar-ring: #D4AF37;
+
+    /* LordsMint Design Tokens - Gold Palette */
+  --gold-primary: #D4AF37;
+  --gold-hover: #B9972C;
+  --gold-tint: #F7E8B0;
+  
+  /* Light Theme */
+  --light-bg: #FAFAFA;
+  --light-surface: #FFFFFF;
+  --light-text-primary: #222222;
+  --light-text-secondary: #555555;
+  --light-divider: #E0E0E0;
+  
+  /* Dark Theme */
+  --dark-bg: #121212;
+  --dark-surface: #1E1E1E;
+  --dark-text-primary: #F5F5F5;
+  --dark-text-secondary: #C8C8C8;
+  --dark-divider: #333333;
+  
+  /* Radii */
+  --radii-sm: 8px;
+  --radii-md: 12px;
+  --radii-lg: 16px;
+  --radii-xl: 20px;
+
+  /* Radix */
+  
+  /* Spacing */
+  --space-8: 8px;
+  --space-16: 16px;
+  --space-24: 24px;
+  
+  /* Shadows */
+  --elevation-soft: 0 6px 24px rgba(0, 0, 0, 0.06);
+  --elevation-hover: 0 12px 32px rgba(0, 0, 0, 0.12);
+  --elevation-gold: 0 12px 26px rgba(212, 175, 55, 0.28);
+  
+  /* Apply light theme by default */
+  --background: var(--light-bg);
+  --foreground: var(--light-text-primary);
+  --card: var(--light-surface);
+  --card-foreground: var(--light-text-primary);
+  --popover: var(--light-surface);
+  --popover-foreground: var(--light-text-primary);
+  --primary: var(--gold-primary);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--light-surface);
+  --secondary-foreground: var(--light-text-primary);
+  --muted: #F5F5F5;
+  --muted-foreground: var(--light-text-secondary);
+  --accent: var(--gold-tint);
+  --accent-foreground: var(--light-text-primary);
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: var(--light-divider);
+  --input: var(--light-divider);
+  --input-background: var(--light-surface);
+  --switch-background: #D1D5DB;
+  --ring: var(--gold-primary);
+  --chart-1: var(--gold-primary);
+  --chart-2: #B9972C;
+  --chart-3: #8B7320;
+  --chart-4: #F7E8B0;
+  --chart-5: #D4C598;
+  --radius: var(--radii-md);
+  --sidebar: var(--light-surface);
+  --sidebar-foreground: var(--light-text-primary);
+  --sidebar-primary: var(--gold-primary);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: var(--light-bg);
+  --sidebar-accent-foreground: var(--light-text-primary);
+  --sidebar-border: var(--light-divider);
+  --sidebar-ring: var(--gold-primary);
+}
+
+.dark {
+  /* Dark Theme */
+  --background: #121212;
+  --foreground: #F5F5F5;
+  --card: #1E1E1E;
+  --card-foreground: #F5F5F5;
+  --popover: #1E1E1E;
+  --popover-foreground: #F5F5F5;
+  --primary: #D4AF37;
+  --primary-foreground: #121212;
+  --secondary: #333333;
+  --secondary-foreground: #F5F5F5;
+  --muted: #333333;
+  --muted-foreground: #C8C8C8;
+  --accent: #333333;
+  --accent-foreground: #F5F5F5;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: #333333;
+  --input: #333333;
+  --ring: #D4AF37;
+  --chart-1: #D4AF37;
+  --chart-2: #B9972C;
+  --chart-3: #F7E8B0;
+  --chart-4: #C8C8C8;
+  --chart-5: #F5F5F5;
+  --sidebar: #1E1E1E;
+  --sidebar-foreground: #F5F5F5;
+  --sidebar-primary: #D4AF37;
+  --sidebar-primary-foreground: #121212;
+  --sidebar-accent: #333333;
+  --sidebar-accent-foreground: #F5F5F5;
+  --sidebar-border: #333333;
+  --sidebar-ring: #D4AF37;
+}
+
+@theme {
+  --breakpoint-xs: 32rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    @apply bg-background text-base text-foreground;
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  h1 {
+    @apply text-2xl lg:text-3xl font-semibold;
+  }
+
+  h2 {
+    @apply text-xl font-medium;
+  }
+
+  h3 {
+    @apply text-lg font-medium;
+  }
+
+  h4 {
+    @apply text-base font-medium;
+  }
+
+  p {
+    @apply font-normal;
+  }
+
+  button, label {
+    @apply font-medium;
+  }
+
+  input {
+    @apply font-normal;
+  }
+
+  /* Fix overridden styles affecting HeroUI DateRangePicker */
+  .date-range-picker {
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+    min-height: 46px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background-color: var(--input-background);
+    padding: 0 0.5rem;
+  }
+  .date-range-picker input,
+  .date-range-picker button {
+    background-color: transparent !important;
+    border-radius: var(--radius-sm) !important;
+  }
+}
+
+/* Custom Layout Styles */
+@layer components {
+  .header-light {
+    background: rgba(255, 255, 255, 0.95);
+  }
+  
+  .header-dark {
+    background: rgba(30, 30, 30, 0.95);
+  }
+  
+  .sidebar-light {
+    background: #FFFFFF;
+  }
+  
+  .sidebar-dark {
+    background: #1E1E1E;
+  }
+  
+  .sidebar-link {
+    position: relative;
+  }
+  
+  .sidebar-link-active {
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.15);
+  }
+  
+  .tabbar {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(12px);
+  }
+  
+  .dark .tabbar {
+    background: rgba(30, 30, 30, 0.98);
+  }
+  
+  .tabbar-item {
+    position: relative;
+  }
+  
+  .tabbar-item-active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 3px;
+    background: var(--gold);
+    border-radius: 2px 2px 0 0;
+  }
+  
+  .fab {
+    box-shadow: 
+      0 10px 25px rgba(212, 175, 55, 0.3),
+      0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .dark .fab {
+    box-shadow: 
+      0 10px 25px rgba(212, 175, 55, 0.25),
+      0 6px 12px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* LordsMint Component Classes */
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-hover) 100%);
+  color: #000000;
+  border-radius: var(--radii-md);
+  padding: 12px 24px;
+  transition: all 150ms ease-out;
+  box-shadow: var(--elevation-gold);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--elevation-hover);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radii-md);
+  padding: 12px 24px;
+  transition: all 150ms ease-out;
+}
+
+.btn-secondary:hover {
+  background: var(--muted);
+  transform: translateY(-1px);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.btn-dark {
+  background: var(--foreground);
+  color: var(--background);
+  border-radius: var(--radii-md);
+  padding: 12px 24px;
+  transition: all 150ms ease-out;
+}
+
+.btn-dark:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Cards */
+.card {
+  @apply p-4 md:p-6;
+  background: var(--card);
+  border-radius: var(--radii-lg);
+  /* padding: var(--space-24); */
+  box-shadow: var(--elevation-soft);
+  border: 1px solid var(--border);
+}
+
+.card-interactive {
+  background: var(--card);
+  border-radius: var(--radii-lg);
+  padding: var(--space-24);
+  box-shadow: var(--elevation-soft);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 150ms ease-out;
+}
+
+.card-interactive:hover {
+  box-shadow: var(--elevation-hover);
+  transform: translateY(-1px);
+  border-color: var(--gold-primary);
+}
+
+/* Input Fields */
+.input-field {
+  background: var(--input-background);
+  border: 1px solid var(--input);
+  border-radius: var(--radii-md);
+  padding: 10px 16px;
+  color: var(--foreground);
+  transition: all 150ms ease-out;
+  width: 100%;
+  min-height: 44px;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--gold-primary);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+.input-field:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Badge Variants */
+.badge-gold {
+  background: var(--gold-tint);
+  color: #3A3520;
+  padding: 4px 12px;
+  border-radius: var(--radii-sm);
+}
+
+.badge-success {
+  background: #D1FAE5;
+  color: #065F46;
+  padding: 4px 12px;
+  border-radius: var(--radii-sm);
+}
+
+.badge-warning {
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 4px 12px;
+  border-radius: var(--radii-sm);
+}
+
+.badge-error {
+  background: #FEE2E2;
+  color: #991B1B;
+  padding: 4px 12px;
+  border-radius: var(--radii-sm);
+}
+
+/* Dark theme badge adjustments */
+.dark .badge-gold {
+  background: #3A3520;
+  color: var(--gold-tint);
+}
+
+.dark .badge-success {
+  background: #064E3B;
+  color: #A7F3D0;
+}
+
+.dark .badge-warning {
+  background: #78350F;
+  color: #FDE68A;
+}
+
+.dark .badge-error {
+  background: #7F1D1D;
+  color: #FECACA;
+}

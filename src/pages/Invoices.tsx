@@ -1,12 +1,46 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '../components/Layout';
-import { downloadInvoicePdf, findCustomerByPortalUser, getSalesInvoices } from '../api/erpnextApi';
+import { Link, useNavigate } from 'react-router-dom';
+import { Layout } from '../components/layout/Layout';
+import { downloadInvoicePdf, getSalesInvoices } from '../api/erpnextApi';
 import useAuthStore from '../store/useAuthStore';
 import { formatNaira } from '../utils/currency';
+import DateRangeFilter from "../components/ui/DateRangeFilter";
 
-export default function Invoices() {
-  const { user } = useAuthStore();
+import { Search, Download, Eye, FileTextIcon, Loader } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table';
+import moment from 'moment';
+
+export function Invoices() {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'invoiced' | 'cancelled'>('all');
+
+  const getStatusBadge = (docstatus: number) => {
+    const statusMap: Record<number, { label: string; className: string }> = {
+      0: { label: 'Draft', className: 'badge-warning' },
+      1: { label: 'Invoiced', className: 'badge-success' },
+      2: { label: 'Cancelled', className: 'badge-error' },
+    };
+    const config = statusMap[docstatus] || statusMap[1];
+    return <span className={config.className}>{config.label}</span>;
+  };
+
+  const { customerName } = useAuthStore();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -19,15 +53,21 @@ export default function Invoices() {
   const [sortBy, setSortBy] = useState<string>('creation');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [moreItemAvailable, setMoreItemAvailable] = useState(false);
 
   useEffect(() => {
     const fetchInvoices = async () => {
-      if (!user) return;
+      if (!customerName) return;
       setIsLoading(true);
       try {
-        const customerDoc = await findCustomerByPortalUser(user);
-        const customerName = (customerDoc as any)?.name || user;
+        const docFilter = statusFilter === 'all'
+          ? [0, 1]
+          : statusFilter === 'draft'
+          ? [0]
+          : statusFilter === 'invoiced'
+          ? [1]
+          : [2];
         const rows = await getSalesInvoices(customerName, {
           page,
           pageSize,
@@ -36,9 +76,12 @@ export default function Invoices() {
           search: search?.trim() || undefined,
           fromDate,
           toDate,
-          docstatusIn: [0,1],
+          docstatusIn: docFilter,
         });
-        setInvoices(rows);
+        if (rows?.length < pageSize) setMoreItemAvailable(false);
+        else setMoreItemAvailable(true);
+        if (page === 1) setInvoices(rows);
+        else setInvoices((prev) => [...prev, ...rows]);
       } catch (err) {
         console.error('Error fetching invoices:', err);
         setError('Failed to load invoices. Please try again.');
@@ -48,7 +91,7 @@ export default function Invoices() {
     };
 
     fetchInvoices();
-  }, [user, page, pageSize, sortBy, sortOrder, search, fromDate, toDate]);
+  }, [customerName, page, pageSize, sortBy, sortOrder, search, fromDate, toDate, statusFilter]);
 
   const triggerBlobDownload = (blob: Blob, filename: string) => {
     const url = window.URL.createObjectURL(blob);
@@ -85,177 +128,144 @@ export default function Invoices() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Invoices</h1>
-          <button
-            onClick={handleRequestStatement}
-            className="btn-primary"
-            disabled={requestingSent}
-          >
-            {requestingSent ? 'Request Sent!' : 'Request Account Statement'}
-          </button>
-        </div>
-
-        {/* List controls */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">Search</label>
-            <input
-              type="text"
-              className="input-field mt-1"
-              placeholder="Search by Invoice ID"
-              value={search}
-              onChange={(e) => { setPage(1); setSearch(e.target.value); }}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">From Date</label>
-            <input
-              type="date"
-              className="input-field mt-1"
-              value={fromDate || ''}
-              onChange={(e) => { setPage(1); setFromDate(e.target.value || undefined); }}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">To Date</label>
-            <input
-              type="date"
-              className="input-field mt-1"
-              value={toDate || ''}
-              onChange={(e) => { setPage(1); setToDate(e.target.value || undefined); }}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">Sort By</label>
-            <div className="flex gap-2 mt-1">
-              <select
-                className="input-field"
-                value={sortBy}
-                onChange={(e) => { setPage(1); setSortBy(e.target.value); }}
-              >
-                <option value="creation">Created At</option>
-                <option value="posting_date">Posting Date</option>
-              </select>
-              <button
-                type="button"
-                className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                onClick={() => { setPage(1); setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc'); }}
-              >
-                {sortOrder === 'desc' ? 'Desc' : 'Asc'}
-              </button>
+      <div className="p-3 xs:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 rounded-lg bg-accent flex items-center justify-center">
+                <FileTextIcon className="w-8 h-8 text-[#D4AF37]" />
+              </div>
+              <div>
+                <h1 className="mb-1">Invoices</h1>
+                <p className="text-muted-foreground">
+                  View and manage your invoices
+                </p>
+              </div>
             </div>
           </div>
-          <div className="w-28">
-            <label className="block text-sm font-medium text-gray-700">Page Size</label>
-            <select
-              className="input-field mt-1"
-              value={pageSize}
-              onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}
+
+          {/* Search and Filters */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Search by Invoice ID"
+                className="input-field pl-10"
+                value={search}
+                onChange={(e) => { setPage(1); setSearch(e.target.value); }}
+              />
+            </div>
+            <div className="flex-1">
+              <DateRangeFilter
+                start={fromDate}
+                end={toDate}
+                onChange={(start, end) => {
+                  setPage(1);
+                  setFromDate(start);
+                  setToDate(end);
+                }}
+              />
+            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(val: 'all' | 'draft' | 'invoiced' | 'cancelled') => {
+                setPage(1);
+                setStatusFilter(val);
+              }}
             >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
+              <SelectTrigger className="w-full md:w-52 h-[46px]!">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="invoiced">Invoiced</SelectItem>
+                {/* <SelectItem value="cancelled">Cancelled</SelectItem> */}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {error && (
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="text-sm text-red-700">{error}</div>
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-          </div>
-        ) : invoices.length > 0 ? (
-          <div className="card">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Invoice #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Due Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {invoices.map((invoice) => (
-                    <tr key={invoice.name}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        <Link 
-                          to={`/invoices/${invoice.name}`} 
-                          className="text-blue-600 hover:text-blue-900"
+        {/* Invoices Table */}
+        <div className="card overflow-hidden max-xs:p-4!">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice ID</TableHead>
+                  <TableHead className="hidden md:table-cell">Issue Date</TableHead>
+                  <TableHead className="hidden lg:table-cell">Due Date</TableHead>
+                  <TableHead className="hidden xs:table-cell text-right">Amount</TableHead>
+                  <TableHead className="hidden sm:table-cell text-center">Status</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoices?.map((invoice) => (
+                  <TableRow key={invoice.name} className="hover:bg-muted/50 transition-colors">
+                    <TableCell>
+                      <Link to={`/invoices/${invoice.name}`} state={{ from: '/invoices' }} className="text-[#D4AF37] hover:text-[#B9972C] transition-colors">
+                        {invoice.name}
+                      </Link>
+                      <div className="text-xs md:hidden text-muted-foreground mt-1">
+                        {new Date(invoice.posting_date).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">{moment(invoice.posting_date).format('L')}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{moment(invoice.due_date).format('L')}</TableCell>
+                    <TableCell className="hidden xs:table-cell text-right">{formatNaira(invoice.grand_total)}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-center">{getStatusBadge(invoice.docstatus)}</TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-evenly gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="cursor-pointer"
+                          onClick={() => navigate(`/invoices/${invoice.name}`, { state: { from: '/invoices' } })}
                         >
-                          {invoice.name}
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(invoice.posting_date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(invoice.due_date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatNaira(invoice.grand_total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="cursor-pointer"
                           onClick={() => handleDownloadPdf(invoice.name)}
                           disabled={downloadingId === invoice.name}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
                         >
-                          {downloadingId === invoice.name ? 'Downloading...' : 'Download PDF'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          {downloadingId === invoice.name ? (
+                            <Loader className="animate-spin w-4 h-4" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        ) : (
-          <div className="card">
-            <p className="text-gray-500">No invoices found.</p>
-          </div>
-        )}
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">Page {page}</div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page === 1}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              className="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              onClick={() => setPage(page + 1)}
-              disabled={invoices.length < pageSize}
-            >
-              Next
-            </button>
-          </div>
+          {/* Pagination and Loading */}
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader className="animate-spin rounded-full h-10" />
+            </div>
+          ) : moreItemAvailable ? (
+            <div className="flex p-5">
+              <button
+                className="cursor-pointer btn-secondary px-3 py-2 mx-auto"
+                onClick={() => setPage((page ?? 1) + 1)}
+              >Load more</button>
+            </div>
+          ) : !moreItemAvailable && !invoices?.length && (
+            <div className="flex justify-center py-4">
+              <p className="text-muted-foreground">
+                No invoice records found.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

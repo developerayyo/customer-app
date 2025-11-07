@@ -1,15 +1,21 @@
-import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import Layout from '../components/Layout';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Download, Calendar, FileText, Loader, Printer } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { useEffect, useMemo, useState } from 'react';
 import api, { downloadInvoicePdf } from '../api/erpnextApi';
+import moment from 'moment';
 import { formatNaira } from '../utils/currency';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
+import { SmartBackButton } from '../components/ui/back-button';
+import { FAB } from '../components/layout/FAB';
 
-export default function InvoiceDetails() {
-  const { id } = useParams<{ id: string }>();
+export function InvoiceDetails() {
+   const { id } = useParams<{ id: string }>();
   const [invoice, setInvoice] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchInvoiceDetails = async () => {
@@ -19,7 +25,8 @@ export default function InvoiceDetails() {
       try {
         // Using the api directly since getInvoiceDetails is not exported
         const response = await api.get(`/resource/Sales Invoice/${id}`);
-        setInvoice(response.data);
+        console.log(response.data)
+        setInvoice(response.data?.data || {});
       } catch (err) {
         console.error('Error fetching invoice details:', err);
         setError('Failed to load invoice details. Please try again.');
@@ -57,210 +64,251 @@ export default function InvoiceDetails() {
     }
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+  const getStatusBadge = (docstatus: number) => {
+    const statusMap: Record<number, { label: string; className: string }> = {
+      0: { label: 'Draft', className: 'badge-warning' },
+      1: { label: 'Invoiced', className: 'badge-success' },
+      2: { label: 'Cancelled', className: 'badge-error' },
+    };
+    const config = statusMap[docstatus] || statusMap[1];
+    return <span className={config.className}>{config.label}</span>;
   };
 
-  // Helper function to determine status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Paid':
-        return 'bg-green-100 text-green-800';
-      case 'Unpaid':
-        return 'bg-red-100 text-red-800';
-      case 'Overdue':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const salesOrders: string[] = (invoice?.items || [])
+    .map((i: any) => i?.sales_order)
+    .filter((v: unknown): v is string => typeof v === 'string' && v.length > 0);
+
+  const uniqueSalesOrders: string[] = Array.from(new Set<string>(salesOrders));
 
   return (
-    <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Invoice Details</h1>
-          {invoice && (
-            <button
-              onClick={handleDownloadPdf}
-              disabled={isDownloading}
-              className="btn-primary"
-            >
-              {isDownloading ? 'Downloading...' : 'Download PDF'}
-            </button>
-          )}
-        </div>
-
-        {error && (
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="text-sm text-red-700">{error}</div>
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-          </div>
-        ) : invoice ? (
-          <div className="card">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-medium text-gray-900">
-                Invoice #{invoice.name}
-              </h2>
-              <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getStatusColor(invoice.status)}`}>
-                {invoice.status}
-              </span>
-            </div>
-
-            {/* Invoice Details */}
-            <div className="border-t border-gray-200 pt-4">
-              <dl className="divide-y divide-gray-200">
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Invoice Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {formatDate(invoice.posting_date)}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Due Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {formatDate(invoice.due_date)}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Customer</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {invoice.customer_name}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Sales Order</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {invoice.sales_order || 'N/A'}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Invoice Items */}
-            <div className="mt-6">
-              <h3 className="text-md font-medium text-gray-900 mb-4">Invoice Items</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Item
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantity
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rate
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {invoice.items.map((item: any) => (
-                      <tr key={item.name}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {item.item_name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.qty}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatNaira(item.rate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatNaira(item.amount)}
-                        </td>
-                      </tr>
+    <div className="p-3 xs:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* Sticky Back */}
+      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur backdrop-opacity-40 supports-[backdrop-filter]:bg-background/60 py-2">
+        <SmartBackButton label="Back to Invoices" className="my-3" fallbackTo="/invoices" />
+      </div>
+      {/* Header */}
+      <div className="mb-8 mt-1.5">
+        {invoice && (
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="mb-3">Invoice {invoice.name}</h1>
+              <p className="mb-2">
+                <span className="font-medium">Dispatch Code: </span>
+                <span>{invoice.custom_dispatch_code}</span>
+              </p>
+              {uniqueSalesOrders?.length ? (
+                <p>
+                  <span className="font-medium">Related Order: </span>
+                  <span className="inline-flex flex-wrap gap-1">
+                    {uniqueSalesOrders.map((sales_order: string, idx: number) => (
+                      <Link
+                        key={sales_order}
+                        to={`/orders/${encodeURIComponent(sales_order)}`}
+                        className="text-primary hover:underline"
+                      >
+                        {sales_order}
+                        {idx < uniqueSalesOrders.length - 1 ? ',' : ''}
+                      </Link>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </span>
+                </p>
+              ) : (
+                <p>
+                  <span className="font-medium">Related Order: </span>
+                  <span className="text-muted-foreground">None</span>
+                </p>
+              )}
             </div>
-
-            {/* Invoice Summary */}
-            <div className="mt-6 border-t border-gray-200 pt-4">
-              <dl className="divide-y divide-gray-200">
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Subtotal</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {formatNaira(invoice.total)}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Tax</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {formatNaira(invoice.total_taxes_and_charges || 0)}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-500">Discount</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {formatNaira(invoice.discount_amount || 0)}
-                  </dd>
-                </div>
-                <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                  <dt className="text-sm font-medium text-gray-700 font-bold">Total</dt>
-                  <dd className="mt-1 text-sm text-gray-900 font-bold sm:mt-0 sm:col-span-2">
-                    {formatNaira(invoice.grand_total)}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Payment Information */}
-            {invoice.payments && invoice.payments.length > 0 && (
-              <div className="mt-6 border-t border-gray-200 pt-4">
-                <h3 className="text-md font-medium text-gray-900 mb-4">Payment Information</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Payment Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Reference
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Amount
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {invoice.payments.map((payment: any) => (
-                        <tr key={payment.name}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(payment.posting_date)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {payment.reference_no || 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatNaira(payment.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="card">
-            <p className="text-gray-500">Invoice not found.</p>
+            <div>{getStatusBadge(invoice.docstatus)}</div>
           </div>
         )}
       </div>
-    </Layout>
+
+      {isLoading ? (
+        <div className="flex justify-center">
+          <Loader className="animate-spin rounded-full h-[calc(100vh/3)]" />
+        </div>
+      ) : invoice ? (
+        <div className="space-y-6">
+          {/* Floating action for printing/downloading invoice */}
+          <FAB onClick={handleDownloadPdf} className="bottom-8" label="Download Invoice" icon={<Printer className="size-8" />} />
+          {/* Invoice Info */}
+          <div className="card">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                  <Calendar className="w-5 h-5 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <p className="text-muted-foreground" style={{ fontSize: '14px' }}>
+                    Issue Date
+                  </p>
+                  <p className="mt-1">{moment(invoice.posting_date).format('lll')}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                  <Calendar className="w-5 h-5 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <p className="text-muted-foreground" style={{ fontSize: '14px' }}>
+                    Due Date
+                  </p>
+                  <p className="mt-1">{moment(invoice.due_date).format('lll')}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Invoice Items */}
+          <div className="card">
+            <h3 className="mb-4">Invoice Items</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b border-border hidden xs:table-header-group">
+                  <tr className="sm:hidden">
+                    <th className="text-left pb-3 font-medium">
+                      <div className="w-full flex items-center justify-between">
+                        <span>Description</span>
+                        <span className="hidden xs:block pr-8">Batch Code</span>
+                      </div>
+                    </th>
+                  </tr>
+                  <tr className="hidden sm:table-row">
+                    <th className="text-left pb-3 font-medium">
+                      Description
+                    </th>
+                    <th className="text-left pb-3 font-medium hidden lg:table-cell">
+                      Code
+                    </th>
+                    <th className="text-left pb-3 font-medium hidden md:table-cell">
+                      Batch No.
+                    </th>
+                    <th className="text-right pb-3 font-medium hidden md:table-cell">
+                      <span className="hidden lg:inline-block">Quantity</span>
+                      <span className="lg:hidden">Qty</span>
+                    </th>
+                    <th className="text-right pb-3 font-medium hidden md:table-cell">
+                      Rate
+                    </th>
+                    <th className="text-right pb-3 font-medium">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice?.items?.map((item: any) => (
+                    <tr key={item.name} className="border-b border-border last:border-0">
+                      <td className="sm:hidden">
+                        <Accordion type="single" collapsible>
+                          <AccordionItem value={`item-${item.name}`}>
+                            <AccordionTrigger className="py-3">
+                              <div className="w-full flex gap-2 items-center justify-between">
+                                <span>{item.item_name}</span>
+                                <span className="hidden xs:block">{item.batch_no}</span>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <div className="flex items-center pb-2 justify-between">
+                                <span>Code:</span>
+                                <span>{item.item_code}</span>
+                              </div>
+                              <div className="flex items-center pb-2 justify-between">
+                                <span>Batch No.:</span>
+                                <span>{item.batch_no}</span>
+                              </div>
+                              <div className="flex items-center pb-2 justify-between">
+                                <span>Quantity:</span>
+                                <span>{item.qty}{item.uom}</span>
+                              </div>
+                              <div className="flex items-center pb-2 justify-between">
+                                <span>Rate:</span>
+                                <span>{formatNaira(item.rate)}</span>
+                              </div>
+                              <div className="flex items-center pb-2 justify-between">
+                                <span>Amount:</span>
+                                <span>{formatNaira(item.amount)}</span>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      </td>
+                      <td className="py-3 hidden sm:table-cell">
+                        {item.item_name}
+                        <div className="text-xs lg:hidden text-muted-foreground mt-1">
+                          {item.item_code}
+                        </div>
+                        <div className="text-xs md:hidden text-muted-foreground mt-1">
+                          Batch No.: {item.batch_no}
+                        </div>
+                      </td>
+                      <td className="py-3 hidden lg:table-cell">{item.item_code}</td>
+                      <td className="py-3 hidden md:table-cell">{item.batch_no}</td>
+                      <td className="py-3 text-right hidden md:table-cell">{item.qty}{item.uom}</td>
+                      <td className="py-3 text-right hidden md:table-cell">{formatNaira(item.rate)}</td>
+                      <td className="py-3 text-right hidden sm:table-cell">
+                        <div className="text-xs md:hidden text-muted-foreground mb-1">
+                          {formatNaira(item.rate)}
+                        </div>
+                        <div className="text-xs md:hidden text-muted-foreground mb-1">
+                          x {item.qty}{item.uom}
+                        </div>
+                        {formatNaira(item.amount)}
+                      </td>  
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals */}
+            <div className="mt-6 pt-6 border-t border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-muted-foreground">Subtotal</p>
+                <p>{formatNaira(invoice.total)}</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-muted-foreground">Tax</p>
+                <p>{formatNaira(invoice.tax)}</p>
+              </div>
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <h3>Total Amount</h3>
+                <p style={{ fontSize: '24px', lineHeight: '32px', fontWeight: 600 }} className="text-[#D4AF37]">
+                  {formatNaira(invoice.total)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {invoice?.notes && (
+            <div className="card">
+              <h3 className="mb-4">Payment Terms</h3>
+              <p className="text-muted-foreground">{invoice.notes}</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-4">
+            <button
+              className="btn-primary flex items-center gap-2"
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <Loader className="animate-spin w-4 h-4" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Download PDF
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="card">
+          <p className="text-gray-500">Invoice not found.</p>
+        </div>
+      )}
+    </div>
   );
 }

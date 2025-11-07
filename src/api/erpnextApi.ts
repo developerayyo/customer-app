@@ -88,7 +88,7 @@ export const getWarehouses = async (filters?: string, fields?: string, limit?: n
       params.append('fields', fields);
     } else {
       // Default fields for warehouses
-      params.append('fields', '["name", "warehouse_name", "warehouse_type", "company", "disabled", "parent_warehouse"]');
+      params.append('fields', '["name", "warehouse_name", "warehouse_type", "company", "disabled", "parent_warehouse", "custom_plant"]');
     }
     
     // Add filters if provided
@@ -434,6 +434,7 @@ export const findCustomerByPortalUser = async (username: string) => {
     if (Array.isArray(customers) && customers.length > 0) {
       const name = customers[0]?.name;
       if (name) {
+        localStorage.setItem('customer_name', name);
         return { name };
       }
     }

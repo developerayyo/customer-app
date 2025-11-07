@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { login as apiLogin, logout as apiLogout } from '../api/erpnextApi';
+import { login as apiLogin, logout as apiLogout, findCustomerByPortalUser } from '../api/erpnextApi';
 
 interface AuthState {
   isAuthenticated: boolean;
   user: string | null;
+  customerName: string | null;
   isLoading: boolean;
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
@@ -15,6 +16,7 @@ interface AuthState {
 const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: localStorage.getItem('isAuthenticated') === 'true',
   user: localStorage.getItem('user'),
+  customerName: localStorage.getItem('customer_name'),
   isLoading: false,
   error: null,
   
@@ -22,9 +24,11 @@ const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       await apiLogin(username, password);
+      const customerDoc = await findCustomerByPortalUser(username);
       set({ 
         isAuthenticated: true, 
         user: username,
+        customerName: customerDoc?.name || null,
         isLoading: false 
       });
     } catch (error) {
@@ -55,7 +59,8 @@ const useAuthStore = create<AuthState>((set) => ({
   checkAuth: () => {
     const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
     const user = localStorage.getItem('user');
-    set({ isAuthenticated, user });
+    const customerName = localStorage.getItem('customer_name');
+    set({ isAuthenticated, user, customerName });
   }
 }));
 

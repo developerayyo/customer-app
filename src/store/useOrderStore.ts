@@ -19,12 +19,14 @@ interface OrderState {
   currentOrder: any | null;
   totalOrders?: number;
   page?: number;
-  pageSize?: number;
+  pageSize: number;
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   fromDate?: string;
   toDate?: string;
+  status?: string;
+  moreItemAvailable?: boolean;
 
   setWarehouse: (warehouse: string) => void;
   setPlant: (plant: string) => void;
@@ -32,10 +34,11 @@ interface OrderState {
   removeItem: (itemCode: string) => void;
   updateItemQuantity: (itemCode: string, qty: number) => void;
   clearItems: () => void;
-  submitOrder: (customerData: any) => Promise<any>;
+  submitOrder: (customer: string) => Promise<any>;
   fetchOrders: (customer: string) => Promise<void>;
   setPage: (page: number) => void;
   setPageSize: (size: number) => void;
+  setStatus: (status: string) => void;
   setSearch: (q: string) => void;
   setSort: (field: string, order: 'asc' | 'desc') => void;
   setDateRange: (from?: string, to?: string) => void;
@@ -52,12 +55,14 @@ const useOrderStore = create<OrderState>((set, get) => ({
   currentOrder: null,
   totalOrders: 0,
   page: 1,
-  pageSize: 10,
+  pageSize: 20,
   search: '',
   sortBy: 'creation',
   sortOrder: 'desc',
   fromDate: undefined,
   toDate: undefined,
+  status: "all",
+  moreItemAvailable: false,
   
   setWarehouse: (warehouse) => set({ selectedWarehouse: warehouse }),
   setPlant: (plant) => set({ selectedPlant: plant }),
@@ -104,10 +109,14 @@ const useOrderStore = create<OrderState>((set, get) => ({
   
   clearItems: () => set({ items: [] }),
   
-  submitOrder: async (customerData) => {
+  submitOrder: async (customer) => {
     const { items, selectedWarehouse, selectedPlant } = get();
     
-    if (!selectedWarehouse || !selectedPlant || items.length === 0) {
+    if (!customer) {
+      set({ error: 'Missing customer. Please log in and try again.' });
+      return null;
+    }
+    if (!selectedWarehouse || items.length === 0) {
       set({ error: 'Please select a warehouse, plant and add items to your order' });
       return null;
     }
@@ -117,7 +126,7 @@ const useOrderStore = create<OrderState>((set, get) => ({
     try {
       const orderData = {
         doctype: 'Sales Order',
-        customer: customerData.customer,
+        customer,
         transaction_date: new Date().toISOString().split('T')[0],
         delivery_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         set_warehouse: selectedWarehouse,
@@ -145,8 +154,9 @@ const useOrderStore = create<OrderState>((set, get) => ({
   },
   
   fetchOrders: async (customer) => {
-    const { page, pageSize, search, sortBy, sortOrder, fromDate, toDate } = get();
+    const { page, pageSize, search, sortBy, sortOrder, fromDate, toDate, status } = get();
     set({ isLoading: true, error: null });
+    const docstatusIn = status === "all" ? [0, 1] : [Number(status)];
     try {
       const response = await getSalesOrders(customer, {
         page,
@@ -156,12 +166,19 @@ const useOrderStore = create<OrderState>((set, get) => ({
         search,
         fromDate,
         toDate,
-        docstatusIn: [0, 1]
+        docstatusIn
       });
       const payload = response?.data ?? response;
       const rows = payload?.data ?? payload ?? [];
-      // ERPNext list endpoints do not return total by default; keep a heuristic
-      set({ orders: rows, isLoading: false, totalOrders: rows.length });
+      set((state) => {
+        const newOrders = page === 1 ? rows : [...state.orders, ...rows];
+        return {
+          orders: newOrders,
+          isLoading: false,
+          totalOrders: newOrders.length,
+          moreItemAvailable: rows.length >= pageSize,
+        };
+      });
     } catch (error) {
       set({ 
         isLoading: false, 
@@ -171,6 +188,7 @@ const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   setPage: (page) => set({ page }),
+  setStatus: (status) => set({ status }),
   setPageSize: (size) => set({ pageSize: size }),
   setSearch: (q) => set({ search: q, page: 1 }),
   setSort: (field, order) => set({ sortBy: field, sortOrder: order, page: 1 }),
